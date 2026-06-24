@@ -1,0 +1,16 @@
+@import "./colors.css";
+@import "./spacing.css";
+@import "./fonts.css";
+@import "./utilities.css";
+@import "tw-animate-css";
+@import "shadcn-svelte/tailwind.css";
+
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+
+	body {
+		@apply bg-background text-foreground;
+	}
+}

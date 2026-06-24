@@ -1,0 +1,65 @@
+:root {
+	--space-0: 0;
+	--space-1: 2px;
+	--space-2: 4px;
+	--space-3: 6px;
+	--space-4: 8px;
+	--space-5: 10px;
+	--space-6: 12px;
+	--space-7: 14px;
+	--space-8: 16px;
+	--space-9: 18px;
+	--space-10: 20px;
+	--space-12: 24px;
+	--space-14: 28px;
+	--space-16: 32px;
+	--space-20: 40px;
+
+	--pad-card: var(--space-8) var(--space-9);
+	--pad-card-lg: var(--space-9) var(--space-10);
+	--pad-cell: 11px var(--space-8);
+	--pad-control: 7px var(--space-7);
+	--pad-control-sm: var(--space-2) var(--space-5);
+	--gap-grid: var(--space-5);
+	--gap-tight: var(--space-4);
+	--section-x: 22px;
+
+	--radius-xs: 4px;
+	--radius-sm: 5px;
+	--radius-md: 6px;
+	--radius-lg: 8px;
+	--radius-xl: 10px;
+	--radius-pill: 100px;
+	--radius-full: 50%;
+
+	--bw-hair: 0.5px;
+	--bw-thin: 1px;
+	--bw-tab: 2px;
+
+	--shadow-none: none;
+	--shadow-xs: 0 1px 2px rgba(0, 32, 91, 0.04);
+	--shadow-sm: 0 2px 8px rgba(0, 32, 91, 0.06);
+	--shadow-md: 0 6px 20px rgba(0, 32, 91, 0.1);
+	--shadow-pop: 0 8px 28px rgba(0, 32, 91, 0.14);
+
+	--ease-standard: cubic-bezier(0.2, 0, 0.1, 1);
+	--ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+	--dur-fast: 120ms;
+	--dur-base: 180ms;
+	--dur-slow: 260ms;
+
+	--header-h: 48px;
+	--container-max: 1100px;
+
+	--radius: var(--radius-md);
+}
+
+@theme inline {
+	--radius-sm: var(--radius-xs);
+	--radius-md: var(--radius-md);
+	--radius-lg: var(--radius-lg);
+	--radius-xl: var(--radius-xl);
+	--radius-2xl: calc(var(--radius-xl) * 1.2);
+	--radius-3xl: calc(var(--radius-xl) * 1.4);
+	--radius-4xl: calc(var(--radius-xl) * 1.6);
+}
