@@ -21,3 +21,15 @@ You MUST use this tool whenever writing Svelte code before sending it to the use
 
 Generates a Svelte Playground link with the provided code.
 After completing the code, ask the user if they want a playground link. Only call this tool after user confirmation and NEVER if code was written to files in their project.
+
+## Cursor Cloud specific instructions
+
+This repo is `vpaa-ui`, a Svelte 5 / SvelteKit component library (built with `@sveltejs/package`). `src/lib` is the published library; `src/routes` is the showcase/dev app. There is no backend, database, or secrets — it runs fully offline with mock data in `src/routes/showcase.ts`.
+
+Gotcha — install with scripts disabled: the `prepare`/`prepack` scripts run `publint`, and `publint` runs `npm pack`, which re-triggers `prepack` → infinite recursion that hangs `npm install`. Always install with `npm install --ignore-scripts` (the update script does this). Dependencies are pure JS/Svelte, so skipping lifecycle scripts is safe.
+
+Running things (all from repo root):
+- Dev/showcase server: `npm run dev` (Vite on port 5173). This is the primary way to view/test components.
+- Type check: `npm run check` (runs `svelte-kit sync` then `svelte-check`; passes with 0 errors).
+- Build showcase app: `npx vite build` (avoid `npm run build`, which chains the recursive `prepack`).
+- Build/publish the library: `npx svelte-package` (outputs `dist/`). Avoid `npm run prepack`/`npm run prepare` directly for the same recursion reason.
