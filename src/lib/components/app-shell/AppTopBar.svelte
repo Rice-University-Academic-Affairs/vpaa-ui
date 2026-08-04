@@ -1,18 +1,20 @@
 <script lang="ts">
+	import AiChat from "$lib/components/ai-chat/AiChat.svelte";
 	import Search from "$lib/components/search/Search.svelte";
 	import UserBadge from "$lib/components/user/UserBadge.svelte";
 	import { Button } from "$lib/components/ui/button/index.js";
 	import Menu from "@lucide/svelte/icons/menu";
-	import type { AppShellSearch, AppShellUser } from "$lib/types/shell.js";
+	import type { AppShellChat, AppShellSearch, AppShellUser } from "$lib/types/shell.js";
 
 	type Props = {
 		appName: string;
 		user?: AppShellUser;
 		search?: AppShellSearch;
+		chat?: AppShellChat;
 		onMenuClick?: () => void;
 	};
 
-	let { appName, user, search, onMenuClick }: Props = $props();
+	let { appName, user, search, chat, onMenuClick }: Props = $props();
 </script>
 
 <header
@@ -48,6 +50,17 @@
 				secondaryField={search.secondaryField}
 				onSelect={(item) => search.onSelect(item)}
 				placeholder={search.placeholder}
+			/>
+		{/if}
+		{#if chat}
+			<AiChat
+				variant="header"
+				threads={chat.threads}
+				messages={chat.messages}
+				selectedThreadId={chat.selectedThreadId}
+				onThreadSelect={chat.onThreadSelect}
+				onNewThread={chat.onNewThread}
+				onSendMessage={chat.onSendMessage}
 			/>
 		{/if}
 		{#if user}

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import * as Sheet from "$lib/components/ui/sheet/index.js";
 	import type { AppNavGroup } from "$lib/types/navigation.js";
-	import type { AppShellSearch, AppShellUser } from "$lib/types/shell.js";
+	import type { AppShellChat, AppShellSearch, AppShellUser } from "$lib/types/shell.js";
 	import type { Snippet } from "svelte";
 	import AppNavContent from "./AppNavContent.svelte";
 	import AppSidebar from "./AppSidebar.svelte";
@@ -13,16 +13,17 @@
 		currentPath?: string;
 		user?: AppShellUser;
 		search?: AppShellSearch;
+		chat?: AppShellChat;
 		children: Snippet;
 	};
 
-	let { appName, navigation, currentPath, user, search, children }: Props = $props();
+	let { appName, navigation, currentPath, user, search, chat, children }: Props = $props();
 
 	let mobileNavOpen = $state(false);
 </script>
 
 <div class="app-shell">
-	<AppTopBar {appName} {user} {search} onMenuClick={() => (mobileNavOpen = true)} />
+	<AppTopBar {appName} {user} {search} {chat} onMenuClick={() => (mobileNavOpen = true)} />
 	<AppSidebar {navigation} {currentPath} />
 	<Sheet.Root bind:open={mobileNavOpen}>
 		<Sheet.Content side="left" class="w-[248px] p-0 sm:max-w-[248px] motion-reduce:transition-none">
