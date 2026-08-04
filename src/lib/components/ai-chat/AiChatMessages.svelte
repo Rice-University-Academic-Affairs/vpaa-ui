@@ -14,7 +14,7 @@
 </script>
 
 <ScrollArea.Root class={cn("flex-1", className)}>
-	<div class="flex flex-col gap-4 p-4">
+	<div class="flex flex-col gap-5 px-6 py-6">
 		{#if messages.length === 0}
 			<AiChatEmptyState />
 		{:else}

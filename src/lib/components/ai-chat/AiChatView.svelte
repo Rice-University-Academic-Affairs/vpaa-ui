@@ -14,10 +14,10 @@
 	let { thread = null, messages, onSendMessage, class: className }: Props = $props();
 </script>
 
-<section class={cn("flex min-w-0 flex-1 flex-col", className)}>
+<section class={cn("flex min-w-0 flex-1 flex-col bg-background", className)}>
 	{#if thread}
-		<header class="flex shrink-0 items-center border-b border-border px-4 py-3">
-			<h2 class="truncate text-[13px] font-semibold text-strong">{thread.title}</h2>
+		<header class="flex shrink-0 items-center border-b border-border px-6 py-4">
+			<h2 class="truncate text-sm font-semibold text-strong">{thread.title}</h2>
 		</header>
 	{/if}
 

@@ -33,12 +33,12 @@
 <Sheet.Root bind:open>
 	<Sheet.Content
 		side="right"
-		class="flex w-full flex-col gap-0 p-0 sm:w-1/2 sm:max-w-none motion-reduce:transition-none"
+		class="flex h-full w-full max-w-full flex-col gap-0 p-0 motion-reduce:transition-none data-[side=right]:w-full data-[side=right]:max-w-full sm:data-[side=right]:w-[40vw] sm:data-[side=right]:min-w-[520px] sm:data-[side=right]:max-w-[40vw]"
 	>
-		<Sheet.Header class="shrink-0 border-b border-border px-5 py-4">
-			<div class="flex items-center gap-2">
-				<Sparkles class="size-4 text-primary" />
-				<Sheet.Title>AI Assistant</Sheet.Title>
+		<Sheet.Header class="shrink-0 border-b border-border px-6 py-4">
+			<div class="flex items-center gap-2.5 pe-10">
+				<Sparkles class="size-5 text-primary" />
+				<Sheet.Title class="text-base font-semibold">AI Assistant</Sheet.Title>
 			</div>
 			<Sheet.Description class="sr-only">
 				Chat with the AI assistant about your data and reports.

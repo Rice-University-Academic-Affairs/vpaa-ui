@@ -14,15 +14,15 @@
 <button
 	type="button"
 	class={cn(
-		"flex w-full flex-col gap-0.5 rounded-md px-3 py-2.5 text-left transition-colors",
+		"flex w-full flex-col gap-1 rounded-lg px-3 py-3 text-left transition-colors",
 		selected
 			? "bg-tint-navy-bg text-strong"
 			: "text-body hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
 	)}
 	{onclick}
 >
-	<span class="truncate text-[13px] font-medium">{thread.title}</span>
+	<span class="line-clamp-2 text-sm font-medium leading-snug">{thread.title}</span>
 	{#if thread.preview}
-		<span class="truncate text-[12px] text-muted-foreground">{thread.preview}</span>
+		<span class="line-clamp-2 text-[13px] leading-snug text-muted-foreground">{thread.preview}</span>
 	{/if}
 </button>

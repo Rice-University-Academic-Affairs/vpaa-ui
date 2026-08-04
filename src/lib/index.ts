@@ -16,6 +16,7 @@ export { default as UserBadge } from "./components/user/UserBadge.svelte";
 export { default as Search } from "./components/search/Search.svelte";
 
 export { default as AiChat } from "./components/ai-chat/AiChat.svelte";
+export { default as AiChatTrigger } from "./components/ai-chat/AiChatTrigger.svelte";
 export { default as AiChatPanel } from "./components/ai-chat/AiChatPanel.svelte";
 export { default as AiChatThreadList } from "./components/ai-chat/AiChatThreadList.svelte";
 export { default as AiChatView } from "./components/ai-chat/AiChatView.svelte";

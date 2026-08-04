@@ -20,8 +20,6 @@
 		class: className
 	}: Props = $props();
 
-	let textareaRef = $state<HTMLTextAreaElement | null>(null);
-
 	function submit() {
 		const trimmed = value.trim();
 		if (!trimmed || disabled) return;
@@ -37,20 +35,20 @@
 	}
 </script>
 
-<div class={cn("flex flex-col gap-2 border-t border-border bg-card p-4", className)}>
-	<div class="flex items-end gap-2">
+<div class={cn("flex shrink-0 flex-col gap-2 border-t border-border bg-card px-6 py-5", className)}>
+	<div class="flex items-end gap-3">
 		<Textarea
-			bind:ref={textareaRef}
 			bind:value
 			{placeholder}
 			{disabled}
-			rows={2}
-			class="min-h-0 flex-1 resize-none"
+			rows={3}
+			class="min-h-20 flex-1 resize-none text-sm"
 			onkeydown={handleKeydown}
 		/>
 		<Button
 			type="button"
 			size="icon"
+			class="size-10 shrink-0"
 			{disabled}
 			aria-label="Send message"
 			onclick={submit}

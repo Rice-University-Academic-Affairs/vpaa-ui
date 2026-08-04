@@ -1,5 +1,5 @@
 <script lang="ts">
-	import AiChat from "$lib/components/ai-chat/AiChat.svelte";
+	import AiChatTrigger from "$lib/components/ai-chat/AiChatTrigger.svelte";
 	import Search from "$lib/components/search/Search.svelte";
 	import UserBadge from "$lib/components/user/UserBadge.svelte";
 	import { Button } from "$lib/components/ui/button/index.js";
@@ -11,10 +11,12 @@
 		user?: AppShellUser;
 		search?: AppShellSearch;
 		chat?: AppShellChat;
+		chatOpen?: boolean;
+		onChatOpen?: () => void;
 		onMenuClick?: () => void;
 	};
 
-	let { appName, user, search, chat, onMenuClick }: Props = $props();
+	let { appName, user, search, chat, chatOpen = false, onChatOpen, onMenuClick }: Props = $props();
 </script>
 
 <header
@@ -41,7 +43,7 @@
 		</a>
 	</div>
 
-	<div class="ms-auto flex items-center gap-4">
+	<div class="ms-auto flex shrink-0 items-center gap-4">
 		{#if search}
 			<Search
 				variant="header"
@@ -53,15 +55,7 @@
 			/>
 		{/if}
 		{#if chat}
-			<AiChat
-				variant="header"
-				threads={chat.threads}
-				messages={chat.messages}
-				selectedThreadId={chat.selectedThreadId}
-				onThreadSelect={chat.onThreadSelect}
-				onNewThread={chat.onNewThread}
-				onSendMessage={chat.onSendMessage}
-			/>
+			<AiChatTrigger variant="header" expanded={chatOpen} onclick={onChatOpen} />
 		{/if}
 		{#if user}
 			<UserBadge variant="header" name={user.name} />
