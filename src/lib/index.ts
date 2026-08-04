@@ -15,10 +15,20 @@ export { default as DangerButton } from "./components/buttons/DangerButton.svelt
 export { default as UserBadge } from "./components/user/UserBadge.svelte";
 export { default as Search } from "./components/search/Search.svelte";
 
+export { default as AiChat } from "./components/ai-chat/AiChat.svelte";
+export { default as AiChatTrigger } from "./components/ai-chat/AiChatTrigger.svelte";
+export { default as AiChatPanel } from "./components/ai-chat/AiChatPanel.svelte";
+export { default as AiChatThreadList } from "./components/ai-chat/AiChatThreadList.svelte";
+export { default as AiChatView } from "./components/ai-chat/AiChatView.svelte";
+export { default as AiChatMessages } from "./components/ai-chat/AiChatMessages.svelte";
+export { default as AiChatMessage } from "./components/ai-chat/AiChatMessage.svelte";
+export { default as AiChatInput } from "./components/ai-chat/AiChatInput.svelte";
+
 export type { Column, ColumnStyle } from "./types/data-table.js";
 export type { AppNavGroup, AppNavItem, AppNavIcon } from "./types/navigation.js";
 export { isNavItemActive } from "./types/navigation.js";
-export type { AppShellUser, AppShellSearch } from "./types/shell.js";
+export type { AppShellUser, AppShellSearch, AppShellChat } from "./types/shell.js";
+export type { AiChatThread, AiChatMessage as AiChatMessageType, AiChatRole } from "./types/chat.js";
 export type {
 	DepartmentRow,
 	DrilldownPath,

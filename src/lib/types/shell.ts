@@ -1,3 +1,5 @@
+import type { AppShellChat } from "./chat.js";
+
 export type AppShellUser = {
 	name: string;
 };
@@ -9,3 +11,5 @@ export type AppShellSearch = {
 	onSelect: (item: unknown) => void;
 	placeholder?: string;
 };
+
+export type { AppShellChat };

@@ -1,7 +1,8 @@
 <script lang="ts">
 	import * as Sheet from "$lib/components/ui/sheet/index.js";
+	import AiChatPanel from "$lib/components/ai-chat/AiChatPanel.svelte";
 	import type { AppNavGroup } from "$lib/types/navigation.js";
-	import type { AppShellSearch, AppShellUser } from "$lib/types/shell.js";
+	import type { AppShellChat, AppShellSearch, AppShellUser } from "$lib/types/shell.js";
 	import type { Snippet } from "svelte";
 	import AppNavContent from "./AppNavContent.svelte";
 	import AppSidebar from "./AppSidebar.svelte";
@@ -13,16 +14,26 @@
 		currentPath?: string;
 		user?: AppShellUser;
 		search?: AppShellSearch;
+		chat?: AppShellChat;
 		children: Snippet;
 	};
 
-	let { appName, navigation, currentPath, user, search, children }: Props = $props();
+	let { appName, navigation, currentPath, user, search, chat, children }: Props = $props();
 
 	let mobileNavOpen = $state(false);
+	let chatOpen = $state(false);
 </script>
 
 <div class="app-shell">
-	<AppTopBar {appName} {user} {search} onMenuClick={() => (mobileNavOpen = true)} />
+	<AppTopBar
+		{appName}
+		{user}
+		{search}
+		{chat}
+		chatOpen={chatOpen}
+		onChatOpen={() => (chatOpen = true)}
+		onMenuClick={() => (mobileNavOpen = true)}
+	/>
 	<AppSidebar {navigation} {currentPath} />
 	<Sheet.Root bind:open={mobileNavOpen}>
 		<Sheet.Content side="left" class="w-[248px] p-0 sm:max-w-[248px] motion-reduce:transition-none">
@@ -35,6 +46,17 @@
 			</nav>
 		</Sheet.Content>
 	</Sheet.Root>
+	{#if chat}
+		<AiChatPanel
+			bind:open={chatOpen}
+			threads={chat.threads}
+			messages={chat.messages}
+			selectedThreadId={chat.selectedThreadId}
+			onThreadSelect={chat.onThreadSelect}
+			onNewThread={chat.onNewThread}
+			onSendMessage={chat.onSendMessage}
+		/>
+	{/if}
 	<main class="overflow-y-auto" style="grid-area: content;">
 		{@render children()}
 	</main>

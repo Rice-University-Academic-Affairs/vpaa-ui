@@ -1,18 +1,22 @@
 <script lang="ts">
+	import AiChatTrigger from "$lib/components/ai-chat/AiChatTrigger.svelte";
 	import Search from "$lib/components/search/Search.svelte";
 	import UserBadge from "$lib/components/user/UserBadge.svelte";
 	import { Button } from "$lib/components/ui/button/index.js";
 	import Menu from "@lucide/svelte/icons/menu";
-	import type { AppShellSearch, AppShellUser } from "$lib/types/shell.js";
+	import type { AppShellChat, AppShellSearch, AppShellUser } from "$lib/types/shell.js";
 
 	type Props = {
 		appName: string;
 		user?: AppShellUser;
 		search?: AppShellSearch;
+		chat?: AppShellChat;
+		chatOpen?: boolean;
+		onChatOpen?: () => void;
 		onMenuClick?: () => void;
 	};
 
-	let { appName, user, search, onMenuClick }: Props = $props();
+	let { appName, user, search, chat, chatOpen = false, onChatOpen, onMenuClick }: Props = $props();
 </script>
 
 <header
@@ -39,7 +43,7 @@
 		</a>
 	</div>
 
-	<div class="ms-auto flex items-center gap-4">
+	<div class="ms-auto flex shrink-0 items-center gap-4">
 		{#if search}
 			<Search
 				variant="header"
@@ -49,6 +53,9 @@
 				onSelect={(item) => search.onSelect(item)}
 				placeholder={search.placeholder}
 			/>
+		{/if}
+		{#if chat}
+			<AiChatTrigger variant="header" expanded={chatOpen} onclick={onChatOpen} />
 		{/if}
 		{#if user}
 			<UserBadge variant="header" name={user.name} />
