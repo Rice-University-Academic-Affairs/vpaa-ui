@@ -34,6 +34,7 @@ export type {
 } from "./ai-chat/create-ai-chat-session.svelte.js";
 
 export {
+	createLocalChatStorage,
 	createMemoryChatStorage,
 	createMemoryThreadStorage,
 	toMessagePersistence,
@@ -41,6 +42,7 @@ export {
 	type ChatThreadRecord,
 	type ChatThreadStorage,
 	type CreateChatThreadInput,
+	type LocalChatStorageOptions,
 	type UpdateChatThreadPatch
 } from "./ai-chat/storage.js";
 
@@ -56,15 +58,6 @@ export { resolveAiChatTransport, type AiChatTransport, type ResolvedAiChatTransp
 
 export { clientTools, toolDefinition } from "./ai-chat/tools.js";
 export type { AnyClientTool, ClientTool, ServerTool, ToolDefinition } from "./ai-chat/tools.js";
-
-export {
-	localStoragePersistence,
-	sessionStoragePersistence,
-	indexedDBPersistence,
-	type ChatClientPersistence,
-	type ChatPersistenceOption,
-	type ChatPersistedState
-} from "@tanstack/ai-svelte";
 
 export {
 	defaultThreadPreview,

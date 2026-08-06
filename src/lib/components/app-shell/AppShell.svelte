@@ -1,6 +1,5 @@
 <script lang="ts">
 	import * as Sheet from "$lib/components/ui/sheet/index.js";
-	import { createAiChat } from "$lib/ai-chat/create-ai-chat.svelte.js";
 	import AiChatPanel from "$lib/components/ai-chat/AiChatPanel.svelte";
 	import type { AppNavGroup } from "$lib/types/navigation.js";
 	import type { AppShellChat, AppShellSearch, AppShellUser } from "$lib/types/shell.js";
@@ -25,23 +24,8 @@
 	let mobileNavOpen = $state(false);
 	let chatOpen = $state(false);
 
-	const ownsChat = !chat?.chat && !chat?.session;
-	const chatClient =
-		chat?.session?.chat ?? chat?.chat ?? createAiChat({ endpoint: chat?.endpoint ?? "/api/chat" });
-	const threads = chat?.session?.threads ?? chat?.threads ?? [];
-	const selectedThreadId = chat?.session?.selectedThreadId ?? chat?.selectedThreadId ?? null;
-	const onThreadSelect =
-		chat?.session?.selectThread ?? chat?.onThreadSelect;
-	const onNewThread =
-		chat?.session?.createThread ?? chat?.onNewThread;
-
 	onDestroy(() => {
-		if (ownsChat) {
-			chatClient.stop();
-		}
-		if (chat?.session) {
-			chat.session.dispose();
-		}
+		chat?.dispose();
 	});
 </script>
 
@@ -51,7 +35,6 @@
 		{user}
 		{search}
 		{chat}
-		{chatClient}
 		chatOpen={chatOpen}
 		onChatOpen={() => (chatOpen = true)}
 		onMenuClick={() => (mobileNavOpen = true)}
@@ -71,11 +54,11 @@
 	{#if chat}
 		<AiChatPanel
 			bind:open={chatOpen}
-			chat={chatClient}
-			{threads}
-			{selectedThreadId}
-			{onThreadSelect}
-			{onNewThread}
+			chat={chat.chat}
+			threads={chat.threads}
+			selectedThreadId={chat.selectedThreadId}
+			onThreadSelect={chat.selectThread}
+			onNewThread={chat.createThread}
 		/>
 	{/if}
 	<main class="overflow-y-auto" style="grid-area: content;">

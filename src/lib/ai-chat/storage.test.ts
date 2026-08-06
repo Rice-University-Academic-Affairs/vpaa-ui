@@ -1,6 +1,7 @@
 import type { ChatPersistedState } from "@tanstack/ai-client";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+	createLocalChatStorage,
 	createMemoryChatStorage,
 	createMemoryThreadStorage,
 	toMessagePersistence
@@ -93,6 +94,60 @@ describe("toMessagePersistence", () => {
 
 		await persistence.removeItem(thread.id);
 		expect(await persistence.getItem(thread.id)).toBeNull();
+	});
+});
+
+describe("createLocalChatStorage", () => {
+	const store = new Map<string, string>();
+
+	beforeEach(() => {
+		store.clear();
+		vi.stubGlobal("localStorage", {
+			getItem: (key: string) => store.get(key) ?? null,
+			setItem: (key: string, value: string) => {
+				store.set(key, value);
+			},
+			removeItem: (key: string) => {
+				store.delete(key);
+			}
+		});
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it("seeds initial threads when storage is empty", async () => {
+		const storage = createLocalChatStorage({
+			keyPrefix: "test:",
+			initialThreads: [{ id: "seed", title: "Seed thread", updatedAt: "2026-03-01" }]
+		});
+
+		expect(await storage.listThreads()).toEqual([
+			{ id: "seed", title: "Seed thread", updatedAt: "2026-03-01" }
+		]);
+	});
+
+	it("persists thread metadata and message state", async () => {
+		const storage = createLocalChatStorage({ keyPrefix: "test:" });
+		const thread = await storage.createThread({ title: "Local chat" });
+
+		await storage.setThreadState(thread.id, sampleState);
+
+		const reopened = createLocalChatStorage({ keyPrefix: "test:" });
+		expect(await reopened.getThread(thread.id)).toMatchObject({ title: "Local chat" });
+		expect(await reopened.getThreadState(thread.id)).toEqual(sampleState);
+	});
+
+	it("deletes thread metadata and message state together", async () => {
+		const storage = createLocalChatStorage({ keyPrefix: "test:" });
+		const thread = await storage.createThread({ title: "Temporary" });
+
+		await storage.setThreadState(thread.id, sampleState);
+		await storage.deleteThread(thread.id);
+
+		expect(await storage.getThread(thread.id)).toBeNull();
+		expect(await storage.getThreadState(thread.id)).toBeNull();
 	});
 });
 

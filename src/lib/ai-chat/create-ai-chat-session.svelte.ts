@@ -1,8 +1,9 @@
 import type { AnyClientTool } from "@tanstack/ai";
+import type { UIMessage } from "@tanstack/ai-client";
 import { createAiChat, type AiChatClient } from "./create-ai-chat.svelte.js";
 import { buildThreadMetadataSync } from "./session-sync.js";
 import {
-	createMemoryChatStorage,
+	createLocalChatStorage,
 	toMessagePersistence,
 	type ChatThreadRecord,
 	type ChatStorage,
@@ -13,8 +14,7 @@ import { resolveAiChatTransport, type AiChatTransport } from "./transport.js";
 export type CreateAiChatSessionOptions = {
 	storage?: ChatStorage;
 	transport?: AiChatTransport;
-	endpoint?: string;
-	clientTools?: readonly AnyClientTool[];
+	tools?: readonly AnyClientTool[];
 	threadId?: string;
 };
 
@@ -23,8 +23,8 @@ async function awaitValue<T>(value: T | Promise<T>): Promise<T> {
 }
 
 export function createAiChatSession(options: CreateAiChatSessionOptions = {}) {
-	const storage = options.storage ?? createMemoryChatStorage();
-	const transport = options.transport ?? options.endpoint ?? "/api/chat";
+	const storage = options.storage ?? createLocalChatStorage();
+	const transport = options.transport ?? "/api/chat";
 	const resolvedTransport = resolveAiChatTransport(transport);
 	const messagePersistence =
 		resolvedTransport.persistence === true ? true : toMessagePersistence(storage);
@@ -35,27 +35,29 @@ export function createAiChatSession(options: CreateAiChatSessionOptions = {}) {
 	let chat = $state<AiChatClient>(createChatForThread(initialThreadId));
 
 	function createChatForThread(threadId: string | null): AiChatClient {
-		return createAiChat({
+		const client = createAiChat({
 			transport,
 			threadId: threadId ?? undefined,
 			persistence: messagePersistence,
-			tools: options.clientTools,
+			tools: options.tools,
 			onFinish: () => {
-				void syncThreadMetadata(threadId);
+				void syncThreadMetadata(threadId, client.messages);
 			}
 		});
+
+		return client;
 	}
 
 	async function refreshThreads() {
 		threads = await awaitValue(storage.listThreads());
 	}
 
-	async function syncThreadMetadata(threadId: string | null) {
+	async function syncThreadMetadata(threadId: string | null, messages: UIMessage[]) {
 		if (!threadId) return;
 
 		const sync = buildThreadMetadataSync(
 			threadId,
-			chat.messages,
+			messages,
 			await awaitValue(storage.getThread(threadId))
 		);
 		if (!sync) return;

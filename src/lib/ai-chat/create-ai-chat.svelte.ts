@@ -1,7 +1,6 @@
 import {
 	createChat,
-	type ChatPersistenceOption,
-	type ConnectionAdapter
+	type ChatPersistenceOption
 } from "@tanstack/ai-svelte";
 import type { AnyClientTool } from "@tanstack/ai";
 import type { ChatClientOptions } from "@tanstack/ai-client";
@@ -9,25 +8,17 @@ import { resolveAiChatTransport, type AiChatTransport } from "./transport.js";
 
 export type CreateAiChatOptions = {
 	transport?: AiChatTransport;
-	endpoint?: string;
-	connection?: ConnectionAdapter;
 	threadId?: string;
 	persistence?: ChatPersistenceOption;
 	tools?: readonly AnyClientTool[];
+	forwardedProps?: Record<string, unknown>;
 } & Omit<
 	ChatClientOptions,
 	"connection" | "fetcher" | "tools" | "persistence" | "threadId" | "forwardedProps"
-> & {
-		forwardedProps?: Record<string, unknown>;
-	};
+>;
 
 export function createAiChat(options: CreateAiChatOptions = {}) {
-	const transport =
-		options.transport ??
-		(options.connection
-			? { connection: options.connection, forwardedProps: options.forwardedProps }
-			: (options.endpoint ?? "/api/chat"));
-
+	const transport = options.transport ?? "/api/chat";
 	const resolved = resolveAiChatTransport(transport);
 
 	return createChat({

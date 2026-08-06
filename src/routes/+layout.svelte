@@ -2,7 +2,7 @@
 	import { page } from "$app/state";
 	import { AppShell } from "$lib/index.js";
 	import { createAiChatSession } from "$lib/ai-chat/create-ai-chat-session.svelte.js";
-	import { createMemoryChatStorage } from "$lib/ai-chat/storage.js";
+	import { createLocalChatStorage } from "$lib/ai-chat/storage.js";
 	import type { AppNavGroup } from "$lib/types/navigation.js";
 	import type { FacultyRow } from "$lib/types/drilldown.js";
 	import { faculty } from "./showcase.js";
@@ -18,26 +18,28 @@
 	];
 
 	const chatSession = createAiChatSession({
-		storage: createMemoryChatStorage([
-			{
-				id: "thread-1",
-				title: "Faculty headcount trends",
-				preview: "What changed in the last quarter?",
-				updatedAt: "2026-03-20"
-			},
-			{
-				id: "thread-2",
-				title: "Department budget summary",
-				preview: "Show me the top three departments by spend.",
-				updatedAt: "2026-03-18"
-			},
-			{
-				id: "thread-3",
-				title: "New faculty onboarding",
-				preview: "How many new hires joined this year?",
-				updatedAt: "2026-03-15"
-			}
-		]),
+		storage: createLocalChatStorage({
+			initialThreads: [
+				{
+					id: "thread-1",
+					title: "Faculty headcount trends",
+					preview: "What changed in the last quarter?",
+					updatedAt: "2026-03-20"
+				},
+				{
+					id: "thread-2",
+					title: "Department budget summary",
+					preview: "Show me the top three departments by spend.",
+					updatedAt: "2026-03-18"
+				},
+				{
+					id: "thread-3",
+					title: "New faculty onboarding",
+					preview: "How many new hires joined this year?",
+					updatedAt: "2026-03-15"
+				}
+			]
+		}),
 		transport: "/api/chat",
 		threadId: "thread-1"
 	});
@@ -59,9 +61,7 @@
 		placeholder: "Search faculty…",
 		onSelect: handleSearchSelect
 	}}
-	chat={{
-		session: chatSession
-	}}
+	chat={chatSession}
 >
 	{@render children()}
 </AppShell>

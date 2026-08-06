@@ -1,3 +1,4 @@
+import { localStoragePersistence } from "@tanstack/ai-client";
 import type { ChatClientPersistence, ChatPersistedState } from "@tanstack/ai-client";
 import type { AiChatThread } from "$lib/types/chat.js";
 
@@ -25,6 +26,11 @@ export interface ChatStorage {
 	removeThreadState(threadId: string): MaybePromise<void>;
 }
 
+export type LocalChatStorageOptions = {
+	keyPrefix?: string;
+	initialThreads?: ChatThreadRecord[];
+};
+
 export function toMessagePersistence(storage: ChatStorage): ChatClientPersistence {
 	return {
 		getItem: (threadId) => storage.getThreadState(threadId),
@@ -35,6 +41,67 @@ export function toMessagePersistence(storage: ChatStorage): ChatClientPersistenc
 
 function sortThreads(threads: Iterable<ChatThreadRecord>): ChatThreadRecord[] {
 	return [...threads].sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
+}
+
+function readThreadCatalog(key: string): ChatThreadRecord[] {
+	if (typeof localStorage === "undefined") return [];
+
+	try {
+		const raw = localStorage.getItem(key);
+		if (!raw) return [];
+		return JSON.parse(raw) as ChatThreadRecord[];
+	} catch {
+		return [];
+	}
+}
+
+function writeThreadCatalog(key: string, threads: ChatThreadRecord[]) {
+	if (typeof localStorage === "undefined") return;
+	localStorage.setItem(key, JSON.stringify(threads));
+}
+
+export function createLocalChatStorage(options: LocalChatStorageOptions = {}): ChatStorage {
+	const prefix = options.keyPrefix ?? "vpaa-ui:";
+	const threadsKey = `${prefix}threads`;
+	const messages = localStoragePersistence({ keyPrefix: `${prefix}messages:` });
+
+	if (readThreadCatalog(threadsKey).length === 0 && options.initialThreads?.length) {
+		writeThreadCatalog(threadsKey, options.initialThreads);
+	}
+
+	return {
+		listThreads: () => sortThreads(readThreadCatalog(threadsKey)),
+		getThread: (id) => readThreadCatalog(threadsKey).find((thread) => thread.id === id) ?? null,
+		createThread: (input = {}) => {
+			const thread: ChatThreadRecord = {
+				id: input.id ?? crypto.randomUUID(),
+				title: input.title ?? "New chat",
+				preview: input.preview,
+				updatedAt: input.updatedAt ?? new Date().toISOString()
+			};
+			const threads = readThreadCatalog(threadsKey);
+			threads.push(thread);
+			writeThreadCatalog(threadsKey, threads);
+			return thread;
+		},
+		updateThread: (id, patch) => {
+			const threads = readThreadCatalog(threadsKey);
+			const index = threads.findIndex((thread) => thread.id === id);
+			if (index === -1) return;
+			threads[index] = { ...threads[index], ...patch };
+			writeThreadCatalog(threadsKey, threads);
+		},
+		deleteThread: async (id) => {
+			writeThreadCatalog(
+				threadsKey,
+				readThreadCatalog(threadsKey).filter((thread) => thread.id !== id)
+			);
+			await messages.removeItem(id);
+		},
+		getThreadState: async (threadId) => (await messages.getItem(threadId)) ?? null,
+		setThreadState: (threadId, state) => messages.setItem(threadId, state),
+		removeThreadState: (threadId) => messages.removeItem(threadId)
+	};
 }
 
 export function createMemoryChatStorage(
