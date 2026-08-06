@@ -1,9 +1,9 @@
 <script lang="ts">
+	import type { UIMessage } from "@tanstack/ai-client";
 	import { cn } from "$lib/utils.js";
-	import type { AiChatMessage } from "$lib/types/chat.js";
 
 	type Props = {
-		message: AiChatMessage;
+		message: UIMessage;
 		class?: string;
 	};
 
@@ -21,6 +21,12 @@
 				: "border border-border bg-card text-body"
 		)}
 	>
-		<p class="whitespace-pre-wrap">{message.content}</p>
+		{#each message.parts as part, index (index)}
+			{#if part.type === "text"}
+				<p class="whitespace-pre-wrap">{part.content}</p>
+			{:else if part.type === "thinking"}
+				<p class="text-[13px] text-muted-foreground italic">{part.content}</p>
+			{/if}
+		{/each}
 	</div>
 </div>

@@ -24,11 +24,18 @@ export { default as AiChatMessages } from "./components/ai-chat/AiChatMessages.s
 export { default as AiChatMessage } from "./components/ai-chat/AiChatMessage.svelte";
 export { default as AiChatInput } from "./components/ai-chat/AiChatInput.svelte";
 
+export { createAiChat } from "./ai-chat/create-ai-chat.svelte.js";
+export type { AiChatClient, CreateAiChatOptions } from "./ai-chat/create-ai-chat.svelte.js";
+
+export { dataTableFeatures } from "./components/data-table/table-features.js";
+export type { DataTableInstance } from "./components/data-table/table-types.js";
+
 export type { Column, ColumnStyle } from "./types/data-table.js";
 export type { AppNavGroup, AppNavItem, AppNavIcon } from "./types/navigation.js";
 export { isNavItemActive } from "./types/navigation.js";
 export type { AppShellUser, AppShellSearch, AppShellChat } from "./types/shell.js";
-export type { AiChatThread, AiChatMessage as AiChatMessageType, AiChatRole } from "./types/chat.js";
+export type { AiChatThread } from "./types/chat.js";
+
 export type {
 	DepartmentRow,
 	DrilldownPath,

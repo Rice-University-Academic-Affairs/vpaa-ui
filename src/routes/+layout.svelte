@@ -2,7 +2,7 @@
 	import { page } from "$app/state";
 	import { AppShell } from "$lib/index.js";
 	import type { AppNavGroup } from "$lib/types/navigation.js";
-	import type { AiChatMessage, AiChatThread } from "$lib/types/chat.js";
+	import type { AiChatThread } from "$lib/types/chat.js";
 	import type { FacultyRow } from "$lib/types/drilldown.js";
 	import { faculty } from "./showcase.js";
 	import LayoutDashboard from "@lucide/svelte/icons/layout-dashboard";
@@ -37,20 +37,6 @@
 		}
 	];
 
-	const demoMessages: AiChatMessage[] = [
-		{
-			id: "msg-1",
-			role: "user",
-			content: "What changed in faculty headcount over the last quarter?"
-		},
-		{
-			id: "msg-2",
-			role: "assistant",
-			content:
-				"Faculty headcount increased by 12 over the last quarter, with the largest gains in Engineering (+5) and Natural Sciences (+4). Would you like a breakdown by department?"
-		}
-	];
-
 	let selectedThreadId = $state<string | null>("thread-1");
 
 	function handleSearchSelect(item: unknown) {
@@ -71,12 +57,13 @@
 		onSelect: handleSearchSelect
 	}}
 	chat={{
+		endpoint: "/api/chat",
 		threads: demoThreads,
-		messages: demoMessages,
 		selectedThreadId,
 		onThreadSelect: (id) => (selectedThreadId = id),
-		onNewThread: () => console.log("New thread"),
-		onSendMessage: (message) => console.log("Send:", message)
+		onNewThread: () => {
+			selectedThreadId = crypto.randomUUID();
+		}
 	}}
 >
 	{@render children()}

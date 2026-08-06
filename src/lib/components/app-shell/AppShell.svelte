@@ -1,9 +1,11 @@
 <script lang="ts">
 	import * as Sheet from "$lib/components/ui/sheet/index.js";
+	import { createAiChat } from "$lib/ai-chat/create-ai-chat.svelte.js";
 	import AiChatPanel from "$lib/components/ai-chat/AiChatPanel.svelte";
 	import type { AppNavGroup } from "$lib/types/navigation.js";
 	import type { AppShellChat, AppShellSearch, AppShellUser } from "$lib/types/shell.js";
 	import type { Snippet } from "svelte";
+	import { onDestroy } from "svelte";
 	import AppNavContent from "./AppNavContent.svelte";
 	import AppSidebar from "./AppSidebar.svelte";
 	import AppTopBar from "./AppTopBar.svelte";
@@ -22,6 +24,15 @@
 
 	let mobileNavOpen = $state(false);
 	let chatOpen = $state(false);
+
+	const ownsChat = !chat?.chat;
+	const chatClient = chat?.chat ?? createAiChat({ endpoint: chat?.endpoint ?? "/api/chat" });
+
+	onDestroy(() => {
+		if (ownsChat) {
+			chatClient.stop();
+		}
+	});
 </script>
 
 <div class="app-shell">
@@ -30,6 +41,7 @@
 		{user}
 		{search}
 		{chat}
+		{chatClient}
 		chatOpen={chatOpen}
 		onChatOpen={() => (chatOpen = true)}
 		onMenuClick={() => (mobileNavOpen = true)}
@@ -49,12 +61,11 @@
 	{#if chat}
 		<AiChatPanel
 			bind:open={chatOpen}
-			threads={chat.threads}
-			messages={chat.messages}
+			chat={chatClient}
+			threads={chat.threads ?? []}
 			selectedThreadId={chat.selectedThreadId}
 			onThreadSelect={chat.onThreadSelect}
 			onNewThread={chat.onNewThread}
-			onSendMessage={chat.onSendMessage}
 		/>
 	{/if}
 	<main class="overflow-y-auto" style="grid-area: content;">

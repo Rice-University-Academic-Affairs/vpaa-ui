@@ -1,15 +1,15 @@
-<script lang="ts" generics="TData extends import('@tanstack/table-core').RowData">
-	import type { RowData, Table } from "@tanstack/table-core";
+<script lang="ts" generics="TData extends Record<string, unknown>">
 	import SecondaryButton from "$lib/components/buttons/SecondaryButton.svelte";
+	import type { DataTableInstance } from "$lib/components/data-table/table-types.js";
 
 	type Props = {
-		table: Table<TData>;
+		table: DataTableInstance<TData>;
 	};
 
 	let { table }: Props = $props();
 
 	const pageCount = $derived(table.getPageCount());
-	const pageIndex = $derived(table.getState().pagination.pageIndex);
+	const pageIndex = $derived(table.atoms.pagination.get().pageIndex);
 </script>
 
 <div class="flex items-center justify-end gap-2 pt-4">

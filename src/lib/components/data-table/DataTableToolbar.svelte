@@ -1,5 +1,5 @@
 <script lang="ts" generics="TData extends Record<string, unknown>">
-	import type { Table } from "@tanstack/table-core";
+	import type { DataTableInstance } from "$lib/components/data-table/table-types.js";
 	import SearchIcon from "@lucide/svelte/icons/search";
 	import XIcon from "@lucide/svelte/icons/x";
 	import SecondaryButton from "$lib/components/buttons/SecondaryButton.svelte";
@@ -10,7 +10,7 @@
 	import type { DataTableState } from "./use-data-table-state.svelte.js";
 
 	type Props = {
-		table: Table<TData>;
+		table: DataTableInstance<TData>;
 		search?: DataTableSearch;
 		filters?: DataTableFilter[];
 		tableState: DataTableState<TData>;

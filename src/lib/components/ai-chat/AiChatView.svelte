@@ -1,17 +1,17 @@
 <script lang="ts">
+	import type { AiChatClient } from "$lib/ai-chat/create-ai-chat.svelte.js";
 	import { cn } from "$lib/utils.js";
-	import type { AiChatMessage, AiChatThread } from "$lib/types/chat.js";
+	import type { AiChatThread } from "$lib/types/chat.js";
 	import AiChatMessages from "./AiChatMessages.svelte";
 	import AiChatInput from "./AiChatInput.svelte";
 
 	type Props = {
+		chat: AiChatClient;
 		thread?: AiChatThread | null;
-		messages: readonly AiChatMessage[];
-		onSendMessage?: (message: string) => void;
 		class?: string;
 	};
 
-	let { thread = null, messages, onSendMessage, class: className }: Props = $props();
+	let { chat, thread = null, class: className }: Props = $props();
 </script>
 
 <section class={cn("flex min-w-0 flex-1 flex-col bg-background", className)}>
@@ -21,7 +21,16 @@
 		</header>
 	{/if}
 
-	<AiChatMessages {messages} />
+	{#if chat.error}
+		<div class="border-b border-destructive/20 bg-destructive/5 px-6 py-3 text-sm text-destructive">
+			{chat.error.message}
+		</div>
+	{/if}
 
-	<AiChatInput onSubmit={onSendMessage} />
+	<AiChatMessages messages={chat.messages} isLoading={chat.isLoading} />
+
+	<AiChatInput
+		disabled={chat.isLoading}
+		onSubmit={(message) => chat.sendMessage(message)}
+	/>
 </section>

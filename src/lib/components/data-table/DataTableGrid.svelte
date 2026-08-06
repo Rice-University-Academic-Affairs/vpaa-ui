@@ -1,11 +1,13 @@
 <script lang="ts" generics="TData extends Record<string, unknown>">
-	import type { Row, Table as TanStackTable } from "@tanstack/table-core";
-	import { FlexRender } from "$lib/components/ui/data-table/index.js";
+	import { FlexRender } from "@tanstack/svelte-table";
+	import type { Row } from "@tanstack/svelte-table";
+	import { dataTableFeatures } from "$lib/components/data-table/table-features.js";
+	import type { DataTableInstance } from "$lib/components/data-table/table-types.js";
 	import * as Table from "$lib/components/ui/table/index.js";
 	import { cn } from "$lib/utils.js";
 
 	type Props = {
-		table: TanStackTable<TData>;
+		table: DataTableInstance<TData>;
 		columnCount: number;
 		emptyText: string;
 		onRowClick?: (row: TData) => void;
@@ -14,15 +16,18 @@
 
 	let { table, columnCount, emptyText, onRowClick, rowClickable }: Props = $props();
 
-	function isClickable(row: Row<TData>) {
+	function isClickable(row: Row<typeof dataTableFeatures, TData>) {
 		return Boolean(onRowClick && rowClickable?.(row.original));
 	}
 
-	function handleRowClick(row: Row<TData>) {
+	function handleRowClick(row: Row<typeof dataTableFeatures, TData>) {
 		if (isClickable(row)) onRowClick?.(row.original);
 	}
 
-	function handleRowKeydown(event: KeyboardEvent, row: Row<TData>) {
+	function handleRowKeydown(
+		event: KeyboardEvent,
+		row: Row<typeof dataTableFeatures, TData>
+	) {
 		if (!isClickable(row)) return;
 		if (event.key === "Enter" || event.key === " ") {
 			event.preventDefault();
@@ -38,10 +43,7 @@
 				{#each headerGroup.headers as header (header.id)}
 					<Table.Head colspan={header.colSpan}>
 						{#if !header.isPlaceholder}
-							<FlexRender
-								content={header.column.columnDef.header}
-								context={header.getContext()}
-							/>
+							<FlexRender {header} />
 						{/if}
 					</Table.Head>
 				{/each}
@@ -53,15 +55,15 @@
 			{@const clickable = isClickable(row)}
 			<Table.Row
 				class={cn(clickable && "cursor-pointer hover:bg-[var(--gray-150)]")}
-				data-state={row.getIsSelected() ? "selected" : undefined}
+				data-state={undefined}
 				role={clickable ? "button" : undefined}
 				tabindex={clickable ? 0 : undefined}
 				onclick={() => handleRowClick(row)}
 				onkeydown={(e: KeyboardEvent) => handleRowKeydown(e, row)}
 			>
-				{#each row.getVisibleCells() as cell (cell.id)}
+				{#each row.getAllCells() as cell (cell.id)}
 					<Table.Cell>
-						<FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
+						<FlexRender {cell} />
 					</Table.Cell>
 				{/each}
 			</Table.Row>

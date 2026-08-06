@@ -1,13 +1,7 @@
 <script lang="ts" generics="TData extends Record<string, unknown>">
-	import {
-		type PaginationState,
-		type SortingState,
-		type Updater,
-		getCoreRowModel,
-		getPaginationRowModel,
-		getSortedRowModel
-	} from "@tanstack/table-core";
-	import { createSvelteTable } from "$lib/components/ui/data-table/index.js";
+	import { createTable } from "@tanstack/svelte-table";
+	import type { PaginationState, SortingState, Updater } from "@tanstack/svelte-table";
+	import { dataTableFeatures } from "$lib/components/data-table/table-features.js";
 	import type { Column } from "$lib/types/data-table.js";
 	import { cn } from "$lib/utils.js";
 	import { buildColumnDefs } from "./build-column-defs.js";
@@ -69,12 +63,13 @@
 		pagination = { pageIndex: 0, pageSize };
 	});
 
-	const table = createSvelteTable({
-		get data() {
-			return tableState.filteredData;
-		},
+	const table = createTable({
+		features: dataTableFeatures,
 		get columns() {
 			return columnDefs;
+		},
+		get data() {
+			return tableState.filteredData;
 		},
 		state: {
 			get pagination() {
@@ -91,10 +86,7 @@
 			} else {
 				sorting = updater;
 			}
-		},
-		getCoreRowModel: getCoreRowModel(),
-		getPaginationRowModel: getPaginationRowModel(),
-		getSortedRowModel: getSortedRowModel()
+		}
 	});
 
 	function resetPageIndex() {

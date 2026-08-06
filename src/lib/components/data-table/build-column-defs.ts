@@ -1,7 +1,8 @@
-import type { ColumnDef } from "@tanstack/table-core";
+import type { ColumnDef } from "@tanstack/svelte-table";
 import { createRawSnippet } from "svelte";
-import { renderSnippet } from "$lib/components/ui/data-table/render-helpers.js";
+import { renderSnippet } from "@tanstack/svelte-table";
 import type { Column } from "$lib/types/data-table.js";
+import { dataTableFeatures } from "./table-features.js";
 import { defaultColumnLabel } from "./column-label.js";
 import { distinctFieldValues, tagVariantForValue } from "./tag-palette.js";
 
@@ -54,14 +55,14 @@ function tagCell(value: string, display: string, variant: string) {
 export function buildColumnDefs(
 	columns: Column[],
 	data: Record<string, unknown>[]
-): ColumnDef<Record<string, unknown>>[] {
+): ColumnDef<typeof dataTableFeatures, Record<string, unknown>>[] {
 	return columns.map((column) => {
 		const style = column.style ?? "text";
 		const label = column.label ?? defaultColumnLabel(column.field);
 		const sortedTagValues =
 			style === "tag" ? distinctFieldValues(data, column.field) : [];
 
-		const def: ColumnDef<Record<string, unknown>> = {
+		const def: ColumnDef<typeof dataTableFeatures, Record<string, unknown>> = {
 			accessorKey: column.field,
 			header: style === "metric" ? () => endAlignedHeader(label) : label,
 			enableSorting: column.sortable ?? false

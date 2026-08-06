@@ -1,10 +1,4 @@
-export type AiChatRole = "user" | "assistant";
-
-export type AiChatMessage = {
-	id: string;
-	role: AiChatRole;
-	content: string;
-};
+import type { AiChatClient } from "$lib/ai-chat/create-ai-chat.svelte.js";
 
 export type AiChatThread = {
 	id: string;
@@ -14,10 +8,10 @@ export type AiChatThread = {
 };
 
 export type AppShellChat = {
-	threads: readonly AiChatThread[];
-	messages?: readonly AiChatMessage[];
+	endpoint?: string;
+	threads?: readonly AiChatThread[];
 	selectedThreadId?: string | null;
+	chat?: AiChatClient;
 	onThreadSelect?: (threadId: string) => void;
 	onNewThread?: () => void;
-	onSendMessage?: (message: string) => void;
 };
