@@ -122,6 +122,25 @@ describe("DataTable", () => {
 		expect(table.getByRole("button", { name: "Name" })).toBeInTheDocument();
 	});
 
+	it("clamps pagination when a filter applied on page 2 leaves only one page", async () => {
+		const { table } = renderFacultyTable();
+
+		await userEvent.click(table.getByRole("button", { name: "Next" }));
+		expect(table.getByText("Page 2 of 2")).toBeInTheDocument();
+
+		await userEvent.click(table.getByRole("button", { name: "Filter" }));
+		await userEvent.click(await screen.findByLabelText("Tenured"));
+
+		expect(table.getByText("Page 1 of 1")).toBeInTheDocument();
+		expect(getVisibleFacultyNames(table.getByRole("table"))).toHaveLength(6);
+	});
+
+	it("renders fractional metric values in the table", () => {
+		const { table } = renderFacultyTable();
+
+		expect(table.getByText("0.75")).toBeInTheDocument();
+	});
+
 	it("filters rows from the status filter popover", async () => {
 		const { table } = renderFacultyTable();
 

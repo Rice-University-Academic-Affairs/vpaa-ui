@@ -38,6 +38,7 @@ export class ChatSessionController {
 	private readonly createChat: CreateChatFactory;
 	private readonly onStateChange?: () => void;
 	private readonly deletedThreadIds = new Set<string>();
+	private disposed = false;
 
 	constructor(options: ChatSessionControllerOptions = {}) {
 		this.storage = options.storage ?? createLocalChatStorage();
@@ -99,6 +100,10 @@ export class ChatSessionController {
 
 	async selectThread(threadId: string) {
 		if (threadId === this.selectedThreadId) return;
+		if (!this.threads.some((thread) => thread.id === threadId)) {
+			await this.refreshThreads();
+		}
+		if (!this.threads.some((thread) => thread.id === threadId)) return;
 
 		this.chat.stop();
 		this.chat.dispose();
@@ -157,6 +162,8 @@ export class ChatSessionController {
 	}
 
 	dispose() {
+		if (this.disposed) return;
+		this.disposed = true;
 		this.chat.stop();
 		this.chat.dispose();
 	}

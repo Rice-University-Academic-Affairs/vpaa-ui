@@ -49,4 +49,20 @@ describe("AiChatView", () => {
 		expect(screen.getByRole("status", { name: "Assistant is responding" })).toBeInTheDocument();
 		expect(screen.getByRole("textbox")).toBeDisabled();
 	});
+
+	it("surfaces chat errors from the active client", () => {
+		render(AiChatView, {
+			props: {
+				chat: {
+					messages: [],
+					isLoading: false,
+					error: new Error("network timeout"),
+					sendMessage: vi.fn()
+				},
+				isReady: true
+			}
+		});
+
+		expect(screen.getByText("network timeout")).toBeInTheDocument();
+	});
 });

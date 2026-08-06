@@ -4,7 +4,6 @@
 	import type { AiChatSession } from "$lib/ai-chat/session/create-session.svelte.js";
 	import { createShowcaseChatSessionIfAvailable } from "./showcase/chat.js";
 	import type { AppNavGroup } from "$lib/types/navigation.js";
-	import type { FacultyRow } from "$lib/types/drilldown.js";
 	import { faculty } from "./showcase.js";
 	import LayoutDashboard from "@lucide/svelte/icons/layout-dashboard";
 	import "./layout.css";
@@ -25,9 +24,7 @@
 		}
 	});
 
-	function handleSearchSelect(item: unknown) {
-		console.log("Selected:", (item as FacultyRow).name);
-	}
+	function handleSearchSelect(_item: unknown) {}
 </script>
 
 <AppShell

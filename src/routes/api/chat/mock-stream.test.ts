@@ -57,6 +57,22 @@ describe("createMockChatStream", () => {
 		});
 	});
 
+	it("executes the demo server tool when headcount is requested", async () => {
+		const chunks = await collectChunks(
+			createMockChatStream({
+				...baseParams,
+				messages: [{ id: "m1", role: "user", content: "Faculty headcount overview" }]
+			})
+		);
+
+		expect(chunks.some((chunk) => chunk.type === EventType.TOOL_CALL_START)).toBe(true);
+		expect(
+			chunks.find((chunk) => chunk.type === EventType.TOOL_CALL_END)
+		).toMatchObject({
+			toolCallName: "get_demo_stats"
+		});
+	});
+
 	it("reads user text from UIMessage parts", async () => {
 		const chunks = await collectChunks(
 			createMockChatStream({

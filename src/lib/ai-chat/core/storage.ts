@@ -38,8 +38,18 @@ function sortThreads(threads: Iterable<AiChatThread>): AiChatThread[] {
 	return [...threads].sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
 }
 
+const LOCAL_STORAGE_PROBE_KEY = "__vpaa_ui_storage_probe__";
+
 export function canUseLocalChatStorage(): boolean {
-	return typeof localStorage !== "undefined";
+	if (typeof localStorage === "undefined") return false;
+
+	try {
+		localStorage.setItem(LOCAL_STORAGE_PROBE_KEY, "1");
+		localStorage.removeItem(LOCAL_STORAGE_PROBE_KEY);
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 function readThreadCatalog(key: string): AiChatThread[] {
