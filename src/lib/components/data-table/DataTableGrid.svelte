@@ -16,6 +16,8 @@
 
 	let { table, columnCount, emptyText, onRowClick, rowClickable }: Props = $props();
 
+	const rows = $derived(table.getRowModel().rows);
+
 	function isClickable(row: Row<typeof dataTableFeatures, TData>) {
 		return Boolean(onRowClick && rowClickable?.(row.original));
 	}
@@ -51,7 +53,7 @@
 		{/each}
 	</Table.Header>
 	<Table.Body>
-		{#each table.getRowModel().rows as row (row.id)}
+		{#each rows as row (row.id)}
 			{@const clickable = isClickable(row)}
 			<Table.Row
 				class={cn(clickable && "cursor-pointer hover:bg-[var(--gray-150)]")}

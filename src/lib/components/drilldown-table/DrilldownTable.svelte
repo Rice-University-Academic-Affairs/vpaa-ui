@@ -1,5 +1,5 @@
 <script lang="ts" generics="TFaculty extends FacultyRow, TSchool extends SchoolRow = SchoolRow, TDepartment extends DepartmentRow = DepartmentRow">
-	import { createTable, type PaginationState, type SortingState, type Updater } from "@tanstack/svelte-table";
+	import { createTable } from "@tanstack/svelte-table";
 	import { dataTableFeatures } from "$lib/components/data-table/table-features.js";
 	import { buildColumnDefs } from "$lib/components/data-table/build-column-defs.js";
 	import DataTableActiveFilters from "$lib/components/data-table/DataTableActiveFilters.svelte";
@@ -180,27 +180,7 @@
 	);
 
 	let rootEl = $state<HTMLDivElement | null>(null);
-	let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 10 });
-	let sorting = $state<SortingState>([]);
-
-	async function handlePaginationChange(updater: Updater<PaginationState>) {
-		const previousPageIndex = pagination.pageIndex;
-		const next = typeof updater === "function" ? updater(pagination) : updater;
-		if (next.pageIndex === pagination.pageIndex && next.pageSize === pagination.pageSize) {
-			return;
-		}
-		const root = rootEl;
-		const bottomBefore = root?.getBoundingClientRect().bottom;
-		pagination = next;
-		if (next.pageIndex === previousPageIndex || !root || bottomBefore === undefined) return;
-		await tick();
-		stabilizeTableScroll(root, bottomBefore);
-	}
-
-	$effect(() => {
-		if (pagination.pageSize === pageSize) return;
-		pagination = { pageIndex: 0, pageSize };
-	});
+	let lastScrollPageIndex = 0;
 
 	const table = createTable({
 		features: dataTableFeatures,
@@ -210,32 +190,41 @@
 		get columns() {
 			return currentColumns;
 		},
-		state: {
-			get pagination() {
-				return pagination;
-			},
-			get sorting() {
-				return sorting;
-			}
-		},
-		onPaginationChange: handlePaginationChange,
-		onSortingChange: (updater) => {
-			const next = typeof updater === "function" ? updater(sorting) : updater;
-			if (
-				next.length === sorting.length &&
-				next.every((entry, index) => {
-					const current = sorting[index];
-					return current?.id === entry.id && current?.desc === entry.desc;
-				})
-			) {
-				return;
-			}
-			sorting = next;
+		initialState: {
+			pagination: { pageIndex: 0, pageSize: 10 }
 		}
 	});
 
+	$effect(() => {
+		const rowCount = tableState.filteredData.length;
+		const currentPagination = table.atoms.pagination.get();
+		const maxPageIndex = Math.max(0, Math.ceil(rowCount / currentPagination.pageSize) - 1);
+
+		if (currentPagination.pageIndex > maxPageIndex) {
+			table.setPageIndex(maxPageIndex);
+		}
+	});
+
+	$effect(() => {
+		if (table.atoms.pagination.get().pageSize === pageSize) return;
+		table.setPageSize(pageSize);
+		table.setPageIndex(0);
+	});
+
+	$effect(() => {
+		const currentPageIndex = table.atoms.pagination.get().pageIndex;
+		const root = rootEl;
+		if (!root || currentPageIndex === lastScrollPageIndex) return;
+
+		const bottomBefore = root.getBoundingClientRect().bottom;
+		lastScrollPageIndex = currentPageIndex;
+
+		tick().then(() => {
+			stabilizeTableScroll(root, bottomBefore);
+		});
+	});
+
 	function resetPageIndex() {
-		if (pagination.pageIndex === 0) return;
 		table.setPageIndex(0);
 	}
 
@@ -268,7 +257,7 @@
 		untrack(() => {
 			tableState.clearSearch();
 			tableState.clearAllFilters();
-			sorting = [];
+			table.resetSorting();
 			table.setPageIndex(0);
 		});
 	});

@@ -1,6 +1,5 @@
 <script lang="ts" generics="TData extends Record<string, unknown>">
 	import { createTable } from "@tanstack/svelte-table";
-	import type { PaginationState, SortingState, Updater } from "@tanstack/svelte-table";
 	import { dataTableFeatures } from "$lib/components/data-table/table-features.js";
 	import type { Column } from "$lib/types/data-table.js";
 	import { cn } from "$lib/utils.js";
@@ -42,26 +41,7 @@
 	const tableState = useDataTableState(() => data, () => search, () => filters);
 
 	let rootEl = $state<HTMLDivElement | null>(null);
-	let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 10 });
-	let sorting = $state<SortingState>([]);
-
-	async function handlePaginationChange(updater: Updater<PaginationState>) {
-		const previousPageIndex = pagination.pageIndex;
-		const next = typeof updater === "function" ? updater(pagination) : updater;
-		if (next.pageIndex === previousPageIndex || !rootEl) {
-			pagination = next;
-			return;
-		}
-		const bottomBefore = rootEl.getBoundingClientRect().bottom;
-		pagination = next;
-		await tick();
-		stabilizeTableScroll(rootEl, bottomBefore);
-	}
-
-	$effect(() => {
-		if (pagination.pageSize === pageSize) return;
-		pagination = { pageIndex: 0, pageSize };
-	});
+	let lastScrollPageIndex = 0;
 
 	const table = createTable({
 		features: dataTableFeatures,
@@ -71,26 +51,41 @@
 		get data() {
 			return tableState.filteredData;
 		},
-		state: {
-			get pagination() {
-				return pagination;
-			},
-			get sorting() {
-				return sorting;
-			}
-		},
-		onPaginationChange: handlePaginationChange,
-		onSortingChange: (updater) => {
-			if (typeof updater === "function") {
-				sorting = updater(sorting);
-			} else {
-				sorting = updater;
-			}
+		initialState: {
+			pagination: { pageIndex: 0, pageSize: 10 }
 		}
 	});
 
+	$effect(() => {
+		const rowCount = tableState.filteredData.length;
+		const currentPagination = table.atoms.pagination.get();
+		const maxPageIndex = Math.max(0, Math.ceil(rowCount / currentPagination.pageSize) - 1);
+
+		if (currentPagination.pageIndex > maxPageIndex) {
+			table.setPageIndex(maxPageIndex);
+		}
+	});
+
+	$effect(() => {
+		if (table.atoms.pagination.get().pageSize === pageSize) return;
+		table.setPageSize(pageSize);
+		table.setPageIndex(0);
+	});
+
+	$effect(() => {
+		const currentPageIndex = table.atoms.pagination.get().pageIndex;
+		const root = rootEl;
+		if (!root || currentPageIndex === lastScrollPageIndex) return;
+
+		const bottomBefore = root.getBoundingClientRect().bottom;
+		lastScrollPageIndex = currentPageIndex;
+
+		tick().then(() => {
+			stabilizeTableScroll(root, bottomBefore);
+		});
+	});
+
 	function resetPageIndex() {
-		if (pagination.pageIndex === 0) return;
 		table.setPageIndex(0);
 	}
 
