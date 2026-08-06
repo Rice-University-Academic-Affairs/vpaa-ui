@@ -30,6 +30,7 @@ export {
 	createMemoryChatStorage,
 	clientTools,
 	toolDefinition,
+	createChatRouteHandler,
 	DEFAULT_CHAT_ENDPOINT,
 	type AiChatSession,
 	type CreateAiChatSessionOptions,
@@ -42,7 +43,10 @@ export {
 	type AnyClientTool,
 	type ClientTool,
 	type ServerTool,
-	type ToolDefinition
+	type ToolDefinition,
+	type ChatRouteHandler,
+	type ChatRouteHandlerContext,
+	type CreateChatRouteHandlerOptions
 } from "./ai-chat/index.js";
 
 export { dataTableFeatures } from "./components/data-table/table-features.js";

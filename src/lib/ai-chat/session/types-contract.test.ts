@@ -8,6 +8,7 @@ import * as publicApi from "../index.js";
 describe("public type contracts", () => {
 	it("exposes session-first chat APIs only", () => {
 		expect(publicApi).toHaveProperty("createAiChatSession");
+		expect(publicApi).toHaveProperty("createChatRouteHandler");
 		expect(publicApi).not.toHaveProperty("createAiChat");
 		expect(publicApi).not.toHaveProperty("resolveAiChat");
 		expect(publicApi).toHaveProperty("DEFAULT_CHAT_ENDPOINT");

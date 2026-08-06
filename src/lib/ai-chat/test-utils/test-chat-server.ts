@@ -1,6 +1,6 @@
 import http from "node:http";
 import { Readable } from "node:stream";
-import { chatParamsFromRequestBody, mergeAgentTools, toServerSentEventsResponse } from "@tanstack/ai";
+import { createChatRouteHandler } from "../server/create-chat-route-handler.js";
 import { getDemoStatsDef } from "../../../routes/api/chat/server-tools.js";
 import { createTestChatStream } from "./test-chat-stream.js";
 
@@ -28,7 +28,7 @@ export type TestChatServer = {
 function readRequestBody(request: http.IncomingMessage): Promise<string> {
 	return new Promise((resolve, reject) => {
 		const chunks: Buffer[] = [];
-		request.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+		request.on("data", (chunk: Buffer) => chunks.push(chunk));
 		request.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
 		request.on("error", reject);
 	});
@@ -52,6 +52,27 @@ async function writeWebResponse(nodeResponse: http.ServerResponse, webResponse: 
 export async function startTestChatServer(): Promise<TestChatServer> {
 	const requests: CapturedChatRequest[] = [];
 
+	const handler = createChatRouteHandler({
+		tools: testServerTools,
+		onRequest: (context) => {
+			requests.push({
+				threadId: context.threadId,
+				runId: context.runId,
+				tools: context.clientTools,
+				messages: context.messages,
+				resume: context.resume
+			});
+		},
+		createStream: (context) =>
+			createTestChatStream({
+				messages: context.messages,
+				threadId: context.threadId,
+				runId: context.runId,
+				tools: context.tools,
+				resume: context.resume
+			})
+	});
+
 	const server = http.createServer((request, response) => {
 		void (async () => {
 			if (request.method !== "POST") {
@@ -60,38 +81,14 @@ export async function startTestChatServer(): Promise<TestChatServer> {
 				return;
 			}
 
-			try {
-				const rawBody = await readRequestBody(request);
-				const body = JSON.parse(rawBody) as unknown;
-				const params = await chatParamsFromRequestBody(body);
-				const tools = mergeAgentTools(testServerTools, params.tools);
+			const rawBody = await readRequestBody(request);
+			const webRequest = new Request("http://127.0.0.1/chat", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: rawBody
+			});
 
-				requests.push({
-					threadId: params.threadId,
-					runId: params.runId,
-					tools: params.tools,
-					messages: params.messages,
-					resume: params.resume
-				});
-
-				const stream = createTestChatStream({
-					messages: params.messages,
-					threadId: params.threadId,
-					runId: params.runId,
-					tools,
-					resume: params.resume
-				});
-
-				await writeWebResponse(response, toServerSentEventsResponse(stream));
-			} catch (error) {
-				response.statusCode = 400;
-				response.setHeader("Content-Type", "application/json");
-				response.end(
-					JSON.stringify({
-						error: error instanceof Error ? error.message : "Invalid AG-UI request"
-					})
-				);
-			}
+			await writeWebResponse(response, await handler({ request: webRequest }));
 		})();
 	});
 

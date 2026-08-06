@@ -19,4 +19,11 @@ export type { ChatEndpoint } from "./core/chat.js";
 export { clientTools, toolDefinition } from "./tools/index.js";
 export type { AnyClientTool, ClientTool, ServerTool, ToolDefinition } from "./tools/index.js";
 
+export {
+	createChatRouteHandler,
+	type ChatRouteHandler,
+	type ChatRouteHandlerContext,
+	type CreateChatRouteHandlerOptions
+} from "./server/create-chat-route-handler.js";
+
 export { DEFAULT_CHAT_ENDPOINT } from "./constants.js";

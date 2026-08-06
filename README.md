@@ -36,36 +36,33 @@ Defaults work out of the box — `localStorage` for storage, `/api/chat` for cha
 
 ## Your chat endpoint
 
-The client speaks the **TanStack AG-UI** protocol over **Server-Sent Events (SSE)**. Each `POST` sends a `RunAgentInput` JSON body (including `threadId`, `runId`, `messages`, and any registered **client tools** in `tools`). Your endpoint must return an SSE stream of AG-UI `StreamChunk` events — not a custom `{ message }` JSON payload.
-
-Server-side pattern:
+The client speaks the **TanStack AG-UI** protocol over **Server-Sent Events (SSE)**. Register server tools and export a SvelteKit route handler:
 
 ```ts
-import { chatParamsFromRequest, mergeAgentTools, toServerSentEventsResponse } from "@tanstack/ai";
+// src/routes/api/chat/+server.ts
+import { createChatRouteHandler } from "vpaa-ui";
+import { serverTools } from "./tools.js";
+import { myAdapter } from "./adapter.js";
 
-export const POST = async ({ request }) => {
-  try {
-    const params = await chatParamsFromRequest(request);
-    const tools = mergeAgentTools(serverTools, params.tools);
-
-    const stream = chat({
-      adapter: myAdapter,
-      messages: params.messages,
-      tools
-    });
-
-    return toServerSentEventsResponse(stream);
-  } catch (error) {
-    if (error instanceof Response) return error;
-    throw error;
-  }
-};
+export const POST = createChatRouteHandler({
+  tools: serverTools,
+  adapter: myAdapter
+});
 ```
 
-- **Server tools** — implement with `toolDefinition(...).server(...)` and pass to `mergeAgentTools` / `chat({ tools })`.
-- **Client tools** — register in `createAiChatSession({ tools: clientTools(...) })`; the client advertises them in each request's `tools` array.
+For a mock or custom stream (no live LLM), pass `createStream` instead of `adapter`:
 
-See `src/routes/api/chat/+server.ts` in this repo for a working mock SSE endpoint.
+```ts
+export const POST = createChatRouteHandler({
+  tools: serverTools,
+  createStream: (context) => myMockStream(context)
+});
+```
+
+- **Server tools** — `toolDefinition(...).server(...)` in your `serverTools` array.
+- **Client tools** — registered on `createAiChatSession({ tools })`; merged automatically from each request.
+
+See `src/routes/api/chat/+server.ts` in this repo for a working mock.
 
 ---
 
