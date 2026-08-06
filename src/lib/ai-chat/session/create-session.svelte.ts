@@ -1,6 +1,6 @@
 import type { AnyClientTool } from "@tanstack/ai";
 import { DEFAULT_CHAT_ENDPOINT } from "../constants.js";
-import { createLocalChatStorage, type ChatStorage } from "../core/storage.js";
+import type { ChatStorage } from "../core/storage.js";
 import type { ChatEndpoint } from "../core/chat.js";
 import type { AiChatThread } from "../core/types.js";
 import type { AiChatClient } from "../client/create-chat.svelte.js";
@@ -14,10 +14,6 @@ export type CreateAiChatSessionOptions = {
 };
 
 export function createAiChatSession(options: CreateAiChatSessionOptions = {}) {
-	let threads = $state<AiChatThread[]>([]);
-	let selectedThreadId = $state<string | null>(null);
-	let chat = $state<AiChatClient | null>(null);
-
 	const controller = new ChatSessionController({
 		storage: options.storage,
 		chat: options.chat ?? DEFAULT_CHAT_ENDPOINT,
@@ -29,6 +25,10 @@ export function createAiChatSession(options: CreateAiChatSessionOptions = {}) {
 			chat = controller.chat;
 		}
 	});
+
+	let threads = $state(controller.threads);
+	let selectedThreadId = $state(controller.selectedThreadId);
+	let chat = $state(controller.chat);
 
 	async function syncFromController() {
 		threads = controller.threads;
@@ -57,7 +57,7 @@ export function createAiChatSession(options: CreateAiChatSessionOptions = {}) {
 		await syncFromController();
 	}
 
-	void controller.bootstrap().then(syncFromController);
+	void controller.bootstrap().then(syncFromController).catch(syncFromController);
 
 	const selectedThread = $derived(
 		threads.find((thread) => thread.id === selectedThreadId) ?? null

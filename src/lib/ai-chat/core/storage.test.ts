@@ -1,6 +1,7 @@
 import type { UIMessage } from "@tanstack/ai-client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+	canUseLocalChatStorage,
 	createLocalChatStorage,
 	createMemoryChatStorage,
 	toMessagePersistence
@@ -96,6 +97,18 @@ describe("toMessagePersistence", () => {
 
 		await persistence.removeItem(thread.id);
 		expect(await persistence.getItem(thread.id)).toBeNull();
+	});
+});
+
+describe("canUseLocalChatStorage", () => {
+	it("returns false when localStorage is unavailable", () => {
+		vi.stubGlobal("localStorage", undefined);
+		expect(canUseLocalChatStorage()).toBe(false);
+		vi.unstubAllGlobals();
+	});
+
+	it("returns true when localStorage is available", () => {
+		expect(canUseLocalChatStorage()).toBe(true);
 	});
 });
 

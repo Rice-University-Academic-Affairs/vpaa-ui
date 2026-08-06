@@ -46,12 +46,12 @@ describe("AI chat integration", () => {
 
 	it("completes a basic AG-UI round-trip and echoes the user message", async () => {
 		const storage = createTestStorage();
+		await storage.createThread({ id: "thread-basic", title: "Basic chat" });
 		const session = await mountSession({
 			storage,
 			chat: server.url,
 			threadId: "thread-basic"
 		});
-		await storage.createThread({ id: "thread-basic", title: "Basic chat" });
 
 		await session.chat!.sendMessage("Faculty trends");
 		await waitForChatIdle(session.chat!);
@@ -63,12 +63,12 @@ describe("AI chat integration", () => {
 
 	it("persists messages in localStorage through ChatStorage", async () => {
 		const storage = createTestStorage();
+		await storage.createThread({ id: "thread-persist", title: "Persist chat" });
 		const session = await mountSession({
 			storage,
 			chat: server.url,
 			threadId: "thread-persist"
 		});
-		await storage.createThread({ id: "thread-persist", title: "Persist chat" });
 
 		await session.chat!.sendMessage("Persist this");
 		await waitForChatIdle(session.chat!);
@@ -80,12 +80,12 @@ describe("AI chat integration", () => {
 
 	it("restores conversation history from localStorage in a new session", async () => {
 		const storage = createTestStorage();
+		await storage.createThread({ id: "thread-restore", title: "Restore chat" });
 		const first = await mountSession({
 			storage,
 			chat: server.url,
 			threadId: "thread-restore"
 		});
-		await storage.createThread({ id: "thread-restore", title: "Restore chat" });
 
 		await first.chat!.sendMessage("Restore me");
 		await waitForChatIdle(first.chat!);
@@ -107,13 +107,13 @@ describe("AI chat integration", () => {
 
 	it("advertises registered client tools in the AG-UI request body", async () => {
 		const storage = createTestStorage();
+		await storage.createThread({ id: "thread-tools", title: "Tool chat" });
 		const session = await mountSession({
 			storage,
 			chat: server.url,
 			threadId: "thread-tools",
 			clientTools: clientTools(createSetFlagClientTool(() => {}))
 		});
-		await storage.createThread({ id: "thread-tools", title: "Tool chat" });
 
 		await session.chat!.sendMessage("Hello");
 		await waitForChatIdle(session.chat!);
@@ -130,6 +130,7 @@ describe("AI chat integration", () => {
 	it("executes a client tool when the server requests it", async () => {
 		const executed: string[] = [];
 		const storage = createTestStorage();
+		await storage.createThread({ id: "thread-client-tool", title: "Client tool chat" });
 		const session = await mountSession({
 			storage,
 			chat: server.url,
@@ -140,7 +141,6 @@ describe("AI chat integration", () => {
 				})
 			)
 		});
-		await storage.createThread({ id: "thread-client-tool", title: "Client tool chat" });
 
 		await session.chat!.sendMessage("Please set-flag now");
 		await waitForChatIdle(session.chat!);
@@ -169,12 +169,12 @@ describe("AI chat integration", () => {
 
 	it("streams a server tool result into the assistant reply", async () => {
 		const storage = createTestStorage();
+		await storage.createThread({ id: "thread-server-tool", title: "Server tool chat" });
 		const session = await mountSession({
 			storage,
 			chat: server.url,
 			threadId: "thread-server-tool"
 		});
-		await storage.createThread({ id: "thread-server-tool", title: "Server tool chat" });
 
 		await session.chat!.sendMessage("Show me stats");
 		await waitForChatIdle(session.chat!);
@@ -190,12 +190,12 @@ describe("AI chat integration", () => {
 
 	it("syncs thread metadata after a completed assistant reply", async () => {
 		const storage = createTestStorage();
+		await storage.createThread({ id: "thread-metadata", title: "New chat" });
 		const session = await mountSession({
 			storage,
 			chat: server.url,
 			threadId: "thread-metadata"
 		});
-		await storage.createThread({ id: "thread-metadata", title: "New chat" });
 
 		await session.chat!.sendMessage("Budget question");
 		await waitForChatIdle(session.chat!);

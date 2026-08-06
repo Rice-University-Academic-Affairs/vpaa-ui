@@ -37,6 +37,7 @@ export class ChatSessionController {
 	private readonly clientTools?: readonly AnyClientTool[];
 	private readonly createChat: CreateChatFactory;
 	private readonly onStateChange?: () => void;
+	private readonly deletedThreadIds = new Set<string>();
 
 	constructor(options: ChatSessionControllerOptions = {}) {
 		this.storage = options.storage ?? createLocalChatStorage();
@@ -74,7 +75,7 @@ export class ChatSessionController {
 	}
 
 	async syncThreadMetadata(threadId: string | null, messages: UIMessage[]) {
-		if (!threadId) return;
+		if (!threadId || this.deletedThreadIds.has(threadId)) return;
 
 		const sync = buildThreadMetadataSync(
 			threadId,
@@ -107,6 +108,10 @@ export class ChatSessionController {
 	}
 
 	async createThread(input: CreateChatThreadInput = {}) {
+		if (input.id) {
+			this.deletedThreadIds.delete(input.id);
+		}
+
 		const thread = await awaitValue(this.storage.createThread(input));
 		await this.refreshThreads();
 		await this.selectThread(thread.id);
@@ -114,6 +119,7 @@ export class ChatSessionController {
 	}
 
 	async deleteThread(threadId: string) {
+		this.deletedThreadIds.add(threadId);
 		await awaitValue(this.storage.deleteThread(threadId));
 		await this.refreshThreads();
 
@@ -125,17 +131,22 @@ export class ChatSessionController {
 			return;
 		}
 
-		this.chat.stop();
-		this.chat.dispose();
-		this.selectedThreadId = null;
-		this.chat = this.createChatForThread(null);
-		this.onStateChange?.();
+		await this.createThread();
 	}
 
 	async bootstrap() {
 		await this.refreshThreads();
 
-		if (this.selectedThreadId) return;
+		if (this.selectedThreadId) {
+			const selectedExists = this.threads.some((thread) => thread.id === this.selectedThreadId);
+			if (selectedExists) return;
+
+			this.chat.stop();
+			this.chat.dispose();
+			this.selectedThreadId = null;
+			this.chat = this.createChatForThread(null);
+			this.onStateChange?.();
+		}
 
 		if (this.threads.length > 0) {
 			await this.selectThread(this.threads[0]!.id);

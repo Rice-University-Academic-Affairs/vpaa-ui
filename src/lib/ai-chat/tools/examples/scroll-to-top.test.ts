@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { scrollAppShellContent } from "$lib/components/app-shell/scroll-app-shell.js";
 import { clientTools } from "../index.js";
 import {
 	createScrollToTopClientTool,
@@ -31,19 +32,20 @@ describe("client tools example", () => {
 		expect(tools[0]?.name).toBe("scroll_to_top");
 	});
 
-	it("uses the default browser scroll implementation", () => {
-		const scrolledTo: number[] = [];
-		const originalScrollTo = window.scrollTo;
-		window.scrollTo = ((options: ScrollToOptions) => {
-			scrolledTo.push(options.top ?? 0);
-		}) as typeof window.scrollTo;
+	it("scrolls the AppShell content region by default", async () => {
+		const main = document.createElement("main");
+		main.setAttribute("data-app-shell-content", "");
+		document.body.append(main);
 
-		try {
-			const tool = createScrollToTopClientTool();
-			expect(tool.execute?.({}, {} as never)).toEqual({ scrolled: true });
-			expect(scrolledTo).toEqual([0]);
-		} finally {
-			window.scrollTo = originalScrollTo;
-		}
+		const scrolled: Array<{ element: HTMLElement; top: number }> = [];
+		const tool = createScrollToTopClientTool((top) => {
+			scrollAppShellContent(top, (element, value) => {
+				scrolled.push({ element, top: value });
+			});
+		});
+
+		expect(await tool.execute?.({}, {} as never)).toEqual({ scrolled: true });
+		expect(scrolled).toEqual([{ element: main, top: 0 }]);
+		main.remove();
 	});
 });

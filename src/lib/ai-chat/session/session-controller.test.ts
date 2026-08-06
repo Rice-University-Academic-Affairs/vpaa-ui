@@ -78,4 +78,76 @@ describe("ChatSessionController", () => {
 			preview: "Budget increased 2%."
 		});
 	});
+
+	it("does not resurrect a deleted thread from stale metadata sync", async () => {
+		const storage = createMemoryChatStorage([{ id: "thread-a", title: "Alpha", updatedAt: "2026-03-03" }]);
+		const controller = createController(storage, "thread-a");
+
+		await controller.deleteThread("thread-a");
+
+		await controller.syncThreadMetadata("thread-a", [
+			{
+				id: "user-1",
+				role: "user",
+				parts: [{ type: "text", content: "Stale message" }]
+			},
+			{
+				id: "assistant-1",
+				role: "assistant",
+				parts: [{ type: "text", content: "Stale preview" }]
+			}
+		]);
+
+		expect(await storage.getThread("thread-a")).toBeNull();
+	});
+
+	it("creates a replacement thread when deleting the last thread", async () => {
+		const storage = createMemoryChatStorage([{ id: "thread-a", title: "Alpha", updatedAt: "2026-03-03" }]);
+		const controller = createController(storage, "thread-a");
+
+		await controller.deleteThread("thread-a");
+
+		expect(controller.selectedThreadId).not.toBeNull();
+		expect(controller.selectedThreadId).not.toBe("thread-a");
+		expect(controller.threads).toHaveLength(1);
+	});
+
+	it("selects an existing thread when bootstrap receives an invalid threadId", async () => {
+		const storage = createMemoryChatStorage([
+			{ id: "thread-a", title: "Alpha", updatedAt: "2026-03-03" },
+			{ id: "thread-b", title: "Beta", updatedAt: "2026-03-02" }
+		]);
+		const controller = createController(storage, "missing-thread");
+
+		await controller.bootstrap();
+
+		expect(controller.selectedThreadId).toBe("thread-a");
+		expect(controller.selectedThread).toMatchObject({ id: "thread-a" });
+	});
+
+	it("allows metadata sync after recreating a deleted thread with the same id", async () => {
+		const storage = createMemoryChatStorage([{ id: "thread-a", title: "Alpha", updatedAt: "2026-03-03" }]);
+		const controller = createController(storage, "thread-a");
+
+		await controller.deleteThread("thread-a");
+		await controller.createThread({ id: "thread-a", title: "Alpha again" });
+
+		await controller.syncThreadMetadata("thread-a", [
+			{
+				id: "user-1",
+				role: "user",
+				parts: [{ type: "text", content: "Fresh start" }]
+			},
+			{
+				id: "assistant-1",
+				role: "assistant",
+				parts: [{ type: "text", content: "Fresh preview" }]
+			}
+		]);
+
+		expect(await storage.getThread("thread-a")).toMatchObject({
+			title: "Alpha again",
+			preview: "Fresh preview"
+		});
+	});
 });

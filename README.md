@@ -1,19 +1,51 @@
 # VPAA UI
 
-Svelte 5 component library for VPAA admin apps. Includes layout, tables, metrics, and a built-in AI chat assistant.
+Svelte 5 component library for VPAA admin apps: layout shell, data tables, metrics, and a built-in AI chat assistant.
+
+## Run the showcase
 
 ```sh
+git clone https://github.com/Rice-University-Academic-Affairs/vpaa-ui.git
+cd vpaa-ui
 npm install
 npm run dev
 ```
 
-Open the app and click the sparkles icon to try chat.
+Open the app and click the sparkles icon to try chat. No API key is required — the showcase uses `createMockChatStream`. See `src/routes/+page.svelte` for table and metric examples, and `src/routes/+layout.svelte` with `src/routes/showcase/chat.ts` for chat wiring.
+
+## Use in your SvelteKit app
+
+```sh
+npm install vpaa-ui @tailwindcss/vite
+```
+
+Peer dependencies: `svelte ^5`, `tailwindcss ^4`, `@lucide/svelte ^1`.
+
+Add Tailwind and the theme in your root layout CSS:
+
+```css
+@import "tailwindcss";
+@import "vpaa-ui/theme.css";
+
+@source "../node_modules/vpaa-ui/dist";
+```
+
+Enable the Tailwind Vite plugin in `vite.config.ts`:
+
+```ts
+import tailwindcss from "@tailwindcss/vite";
+import { sveltekit } from "@sveltejs/kit/vite";
+
+export default defineConfig({
+  plugins: [tailwindcss(), sveltekit()]
+});
+```
 
 ---
 
 ## AI Chat
 
-A full-stack SvelteKit app wires up three things:
+A SvelteKit app wires up three pieces:
 
 | Piece | Where | What it does |
 |---|---|---|
@@ -29,13 +61,15 @@ createAiChatSession  ──POST /api/chat──►  createChatRouteHandler
   clientTools                               serverTools
 ```
 
-Defaults work out of the box for local development: `localStorage` storage and `/api/chat` endpoint.
+Defaults work for local development: `createLocalChatStorage()` and the `/api/chat` endpoint (`DEFAULT_CHAT_ENDPOINT`).
+
+The `chat` option on `createAiChatSession` is the API endpoint URL. `session.chat` is the live client (`messages`, `sendMessage`, `isLoading`, etc.).
 
 ---
 
-## 1. Storage (threads + messages)
+## 1. Storage (optional for prototyping)
 
-Implement `ChatStorage` to persist threads and message history in your own database. The chat UI calls these methods automatically.
+Skip custom storage to use `createLocalChatStorage()` automatically. Implement `ChatStorage` when you want your own database.
 
 | Method | Purpose |
 |---|---|
@@ -49,7 +83,7 @@ Implement `ChatStorage` to persist threads and message history in your own datab
 | `deleteMessages` | Clear message history |
 
 ```ts
-// src/lib/chat/storage.ts
+// In your app, e.g. src/lib/chat/storage.ts
 import type { ChatStorage } from "vpaa-ui";
 
 export const chatStorage: ChatStorage = {
@@ -70,14 +104,14 @@ export const chatStorage: ChatStorage = {
 };
 ```
 
-Use `createLocalChatStorage()` for prototyping and `createMemoryChatStorage()` in tests.
+Use `createMemoryChatStorage()` in tests.
 
 ---
 
 ## 2. Client session + client tools
 
 ```ts
-// src/lib/chat/client-tools.ts
+// In your app, e.g. src/lib/chat/client-tools.ts
 import { clientTools, toolDefinition } from "vpaa-ui";
 
 export const highlightRow = toolDefinition({
@@ -102,26 +136,39 @@ export const chatClientTools = clientTools(highlightRow);
 ```
 
 ```ts
-// src/lib/chat/session.ts
-import { createAiChatSession } from "vpaa-ui";
+// In your app, e.g. src/lib/chat/session.ts
+import { createAiChatSession, DEFAULT_CHAT_ENDPOINT } from "vpaa-ui";
 import { chatClientTools } from "./client-tools.js";
 import { chatStorage } from "./storage.js";
 
-export const chat = createAiChatSession({
+export const chatSession = createAiChatSession({
   storage: chatStorage,
-  chat: "/api/chat",
+  chat: DEFAULT_CHAT_ENDPOINT,
   clientTools: chatClientTools
 });
 ```
 
 ```svelte
 <!-- src/routes/+layout.svelte -->
-<script>
-  import { AppShell } from "vpaa-ui";
-  import { chat } from "$lib/chat/session.js";
+<script lang="ts">
+  import { page } from "$app/state";
+  import { AppShell, type AppNavGroup } from "vpaa-ui";
+  import { chatSession } from "$lib/chat/session.js";
+  import "vpaa-ui/theme.css";
+
+  let { children } = $props();
+
+  const navigation: AppNavGroup[] = [
+    { items: [{ label: "Home", href: "/", exact: true }] }
+  ];
 </script>
 
-<AppShell appName="My App" {navigation} {chat}>
+<AppShell
+  appName="My App"
+  {navigation}
+  currentPath={page.url.pathname}
+  chat={chatSession}
+>
   {@render children()}
 </AppShell>
 ```
@@ -132,16 +179,21 @@ Client tools run in the browser. Register them with `clientTools` on the session
 
 ## 3. Server route handler + server tools + LLM
 
-### LLM adapter
+### Environment
 
-Install a TanStack AI provider package. The **adapter** is the object that connects to your model (OpenAI, Anthropic, etc.):
+```sh
+# .env
+OPENAI_API_KEY=sk-...
+```
+
+### LLM adapter
 
 ```sh
 npm install @tanstack/ai-openai
 ```
 
 ```ts
-// src/routes/api/chat/adapter.ts
+// In your app's +server.ts or a shared module
 import { openaiText } from "@tanstack/ai-openai";
 import { OPENAI_API_KEY } from "$env/static/private";
 
@@ -154,7 +206,7 @@ export const adapter = openaiText("gpt-4o", {
 
 ```ts
 // src/routes/api/chat/tools.ts
-import { toolDefinition } from "@tanstack/ai";
+import { toolDefinition } from "vpaa-ui";
 
 const getHeadcount = toolDefinition({
   name: "get_headcount",
@@ -189,7 +241,7 @@ export const POST = createChatRouteHandler({
 });
 ```
 
-`createChatRouteHandler` merges `serverTools` with the session's `clientTools` into `allTools` for the agent. You don't merge them yourself.
+`createChatRouteHandler` merges `serverTools` with the session's `clientTools` before calling the agent. You don't merge them yourself.
 
 ### Mock agent (no LLM)
 
@@ -202,7 +254,7 @@ export const POST = createChatRouteHandler({
 });
 ```
 
-The showcase uses this pattern — see `src/routes/api/chat/+server.ts`.
+The showcase uses `createMockChatStream` — see `src/routes/api/chat/+server.ts` and `mock-stream.ts`.
 
 ---
 
@@ -221,12 +273,20 @@ The showcase uses this pattern — see `src/routes/api/chat/+server.ts`.
 | Member | Description |
 |---|---|
 | `threads` | Thread list for the sidebar |
+| `selectedThreadId` | Active thread id |
 | `selectedThread` | Active thread metadata |
-| `chat` | Active conversation (`messages`, `isLoading`, `sendMessage`, etc.) |
-| `selectThread(id)` | Switch threads |
-| `createThread()` | Start a new thread |
-| `deleteThread(id)` | Remove a thread |
+| `chat` | Active conversation client |
+| `selectThread(id)` | Switch threads (async) |
+| `createThread()` | Start a new thread (async, returns the thread) |
+| `deleteThread(id)` | Remove a thread (async) |
+| `refreshThreads()` | Reload thread metadata from storage (async) |
 | `dispose()` | Clean up (call on unmount if not using `AppShell`) |
+
+`session.chat` is available immediately when the session is created. Thread metadata finishes loading during bootstrap.
+
+Optional `threadId` pre-selects a thread that already exists in storage. If the id is missing, bootstrap selects the first available thread or creates one.
+
+`AppShell` accepts the session as `chat={session}`. `AiChat` accepts the same object as `{session}`.
 
 ---
 
@@ -241,6 +301,8 @@ The showcase uses this pattern — see `src/routes/api/chat/+server.ts`.
 <AiChat {session} />
 ```
 
+Composable subcomponents are also exported: `AiChatPanel`, `AiChatView`, `AiChatThreadList`, `AiChatInput`, `AiChatTrigger`.
+
 ---
 
 ## Scripts
@@ -248,6 +310,8 @@ The showcase uses this pattern — see `src/routes/api/chat/+server.ts`.
 | Command | Description |
 |---|---|
 | `npm run dev` | Start the showcase app |
-| `npm run build` | Build the library |
+| `npm run build` | Build the showcase app and library package |
 | `npm run check` | Type-check |
-| `npm test` | Run tests |
+| `npm test` | Run unit and integration tests |
+| `npm run test:coverage` | Run tests with coverage thresholds |
+| `npm run test:e2e` | Run Playwright browser tests |

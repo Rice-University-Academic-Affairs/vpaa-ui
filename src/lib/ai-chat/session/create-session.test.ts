@@ -154,7 +154,7 @@ describe("createAiChatSession", () => {
 		expect(session.threads.map((thread) => thread.id)).toEqual(["thread-b"]);
 	});
 
-	it("deleteThread clears selection and creates a fresh chat when deleting the last thread", async () => {
+	it("deleteThread creates a new thread when deleting the last thread", async () => {
 		const storage = createMemoryChatStorage([{ id: "thread-a", title: "Alpha", updatedAt: "2026-03-03" }]);
 		const session = await mountSession({ storage, threadId: "thread-a" });
 		const activeClient = createdClients[0];
@@ -162,11 +162,106 @@ describe("createAiChatSession", () => {
 		await session.deleteThread("thread-a");
 		await flushAsyncWork();
 
-		expect(session.selectedThreadId).toBeNull();
-		expect(session.threads).toHaveLength(0);
+		expect(session.selectedThreadId).not.toBeNull();
+		expect(session.selectedThreadId).not.toBe("thread-a");
+		expect(session.threads).toHaveLength(1);
 		expect(activeClient?.stop).toHaveBeenCalled();
 		expect(activeClient?.dispose).toHaveBeenCalled();
-		expect(createAiChatMock.mock.calls.at(-1)?.[0]?.threadId).toBeUndefined();
+		expect(createAiChatMock.mock.calls.at(-1)?.[0]?.threadId).toBe(session.selectedThreadId);
+	});
+
+	it("does not resurrect a deleted thread from a stale onFinish callback", async () => {
+		const storage = createMemoryChatStorage([{ id: "thread-a", title: "Alpha", updatedAt: "2026-03-03" }]);
+		const session = await mountSession({ storage, threadId: "thread-a" });
+		const deletedClient = createdClients[0];
+
+		await session.deleteThread("thread-a");
+		await flushAsyncWork();
+
+		deletedClient!.messages = [
+			{
+				id: "stale-user",
+				role: "user",
+				parts: [{ type: "text", content: "Stale thread message" }]
+			},
+			{
+				id: "stale-assistant",
+				role: "assistant",
+				parts: [{ type: "text", content: "Stale preview text" }]
+			}
+		];
+		deletedClient!.triggerFinish();
+		await flushAsyncWork();
+
+		expect(await storage.getThread("thread-a")).toBeNull();
+		expect(session.threads.some((thread) => thread.id === "thread-a")).toBe(false);
+	});
+
+	it("exposes the active chat client before bootstrap completes", async () => {
+		type ThreadList = Awaited<ReturnType<ReturnType<typeof createMemoryChatStorage>["listThreads"]>>;
+		let resolveList!: (threads: ThreadList) => void;
+		const listPromise = new Promise<ThreadList>((resolve) => {
+			resolveList = resolve;
+		});
+		const baseStorage = createMemoryChatStorage([{ id: "thread-a", title: "Alpha", updatedAt: "2026-03-03" }]);
+		const storage = {
+			...baseStorage,
+			listThreads: (): Promise<ThreadList> => listPromise
+		};
+
+		let session: Awaited<ReturnType<typeof mountSession>> | undefined;
+		const { render } = await import("@testing-library/svelte");
+		const { default: SessionHarness } = await import("../test-utils/SessionHarness.svelte");
+
+		render(SessionHarness, {
+			props: {
+				options: { storage, threadId: "thread-a" },
+				onSession: (value) => {
+					session = value;
+				}
+			}
+		});
+
+		expect(session?.chat).toBeDefined();
+		expect(session?.chat).not.toBeNull();
+
+		resolveList([{ id: "thread-a", title: "Alpha", updatedAt: "2026-03-03" }]);
+		await flushAsyncWork();
+	});
+
+	it("selects an existing thread when bootstrap receives an invalid threadId", async () => {
+		const storage = createMemoryChatStorage([
+			{ id: "thread-a", title: "Alpha", updatedAt: "2026-03-03" },
+			{ id: "thread-b", title: "Beta", updatedAt: "2026-03-02" }
+		]);
+		const session = await mountSession({ storage, threadId: "missing-thread" });
+
+		expect(session.selectedThreadId).toBe("thread-a");
+		expect(session.selectedThread).toMatchObject({ id: "thread-a" });
+	});
+
+	it("keeps the chat client available when bootstrap fails", async () => {
+		const storage = {
+			...createMemoryChatStorage([{ id: "thread-a", title: "Alpha", updatedAt: "2026-03-03" }]),
+			listThreads: () => Promise.reject(new Error("storage offline"))
+		};
+
+		let session: Awaited<ReturnType<typeof mountSession>> | undefined;
+		const { render } = await import("@testing-library/svelte");
+		const { default: SessionHarness } = await import("../test-utils/SessionHarness.svelte");
+
+		render(SessionHarness, {
+			props: {
+				options: { storage, threadId: "thread-a" },
+				onSession: (value) => {
+					session = value;
+				}
+			}
+		});
+
+		expect(session?.chat).toBeDefined();
+		await flushAsyncWork();
+		expect(session?.chat).toBeDefined();
 	});
 
 	it("syncs metadata from the finishing client messages via onFinish", async () => {
