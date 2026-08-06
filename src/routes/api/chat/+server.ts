@@ -9,6 +9,7 @@ export const POST = createChatRouteHandler({
 			messages: context.messages,
 			threadId: context.threadId,
 			runId: context.runId,
-			tools: context.allTools
+			tools: context.allTools,
+			resume: context.resume
 		})
 });

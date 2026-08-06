@@ -26,6 +26,13 @@
 				<p class="whitespace-pre-wrap">{part.content}</p>
 			{:else if part.type === "thinking"}
 				<p class="text-[13px] text-muted-foreground italic">{part.content}</p>
+			{:else if part.type === "tool-call"}
+				<p class="text-[13px] text-muted-foreground">
+					Used tool: {part.name}
+					{#if part.state === "complete"}
+						<span class="text-body"> (complete)</span>
+					{/if}
+				</p>
 			{/if}
 		{/each}
 	</div>

@@ -1,31 +1,74 @@
+import { render } from "@testing-library/svelte";
 import { describe, expect, it } from "vitest";
-import { deriveFilters } from "$lib/components/data-table/derive-table-config.js";
+import { deriveFilters } from "./derive-table-config.js";
+import type { DataTableState } from "./use-data-table-state.svelte.js";
+import DataTableStateHarness from "./DataTableStateHarness.svelte";
 import { facultyColumns, facultyData } from "../../../test/table-fixtures.js";
 
-describe("faculty search filtering", () => {
-	it("matches name and department fields case-insensitively", () => {
-		const searchColumns = ["name", "department"] as const;
-		const query = "elena";
+describe("useDataTableState", () => {
+	it("filters rows by search query", async () => {
+		let tableState: DataTableState<(typeof facultyData)[number]> | undefined;
 
-		const matches = facultyData.filter((row) =>
-			searchColumns.some((column) =>
-				String(row[column]).toLowerCase().includes(query)
-			)
-		);
+		render(DataTableStateHarness, {
+			props: {
+				rows: facultyData,
+				search: { columns: ["name", "department"] },
+				onState: (state) => {
+					tableState = state as DataTableState<(typeof facultyData)[number]>;
+				}
+			}
+		});
 
-		expect(matches).toEqual([facultyData[0]]);
+		tableState!.searchQuery = "elena";
+
+		expect(tableState!.filteredData).toEqual([facultyData[0]]);
 	});
-});
 
-describe("faculty status filtering", () => {
-	it("exposes distinct status filter options", () => {
+	it("filters rows by selected column values and tracks active count", async () => {
+		let tableState: DataTableState<(typeof facultyData)[number]> | undefined;
 		const filters = deriveFilters(facultyColumns, facultyData);
-		const statusFilter = filters.find((filter) => filter.column === "status");
 
-		expect(statusFilter?.options.map((option) => option.value).sort()).toEqual([
-			"pending",
-			"tenure-track",
-			"tenured"
-		]);
+		render(DataTableStateHarness, {
+			props: {
+				rows: facultyData,
+				filters,
+				onState: (state) => {
+					tableState = state as DataTableState<(typeof facultyData)[number]>;
+				}
+			}
+		});
+
+		tableState!.toggleFilter("status", "tenured");
+		tableState!.toggleFilter("department", "Computer Science");
+
+		expect(tableState!.activeCount).toBe(2);
+		expect(tableState!.filteredData).toEqual([facultyData[0]]);
+		expect(tableState!.isFilterActive("status", "tenured")).toBe(true);
+	});
+
+	it("removes filters and clears search state", async () => {
+		let tableState: DataTableState<(typeof facultyData)[number]> | undefined;
+		const filters = deriveFilters(facultyColumns, facultyData);
+
+		render(DataTableStateHarness, {
+			props: {
+				rows: facultyData,
+				search: { columns: ["name"] },
+				filters,
+				onState: (state) => {
+					tableState = state as DataTableState<(typeof facultyData)[number]>;
+				}
+			}
+		});
+
+		tableState!.searchQuery = "elena";
+		tableState!.toggleFilter("status", "tenured");
+		tableState!.removeFilter("status", "tenured");
+		tableState!.clearSearch();
+		tableState!.clearAllFilters();
+
+		expect(tableState!.searchQuery).toBe("");
+		expect(tableState!.activeCount).toBe(0);
+		expect(tableState!.filteredData).toHaveLength(facultyData.length);
 	});
 });

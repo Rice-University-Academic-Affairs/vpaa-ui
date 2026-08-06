@@ -79,6 +79,23 @@ describe("createMockChatStream", () => {
 		).toContain("Faculty trends");
 	});
 
+	it("completes a client tool resume after interrupt", async () => {
+		const chunks = await collectChunks(
+			createMockChatStream({
+				...baseParams,
+				messages: [],
+				resume: { scrolled: true }
+			})
+		);
+
+		expect(
+			chunks
+				.filter((chunk) => chunk.type === EventType.TEXT_MESSAGE_CONTENT)
+				.map((chunk) => ("delta" in chunk ? chunk.delta : ""))
+				.join("")
+		).toBe("Client tool completed.");
+	});
+
 	it("requests client tool execution when scroll is requested", async () => {
 		const chunks = await collectChunks(
 			createMockChatStream({

@@ -5,6 +5,7 @@ export type MockChatStreamParams = {
 	threadId: string;
 	runId: string;
 	tools: ReadonlyArray<AnyTool | { name: string }>;
+	resume?: unknown;
 };
 
 function lastUserText(
@@ -164,6 +165,11 @@ async function* emitClientToolRequest(
 export async function* createMockChatStream(
 	params: MockChatStreamParams
 ): AsyncGenerator<StreamChunk> {
+	if (params.resume) {
+		yield* emitTextResponse("Client tool completed.", params.threadId, params.runId);
+		return;
+	}
+
 	const userText = lastUserText(params.messages);
 	const normalized = userText.toLowerCase();
 

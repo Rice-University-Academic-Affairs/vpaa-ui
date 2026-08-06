@@ -78,4 +78,37 @@ describe("ChatSessionController", () => {
 			preview: "Budget increased 2%."
 		});
 	});
+
+	it("does not resurrect a deleted thread from stale metadata sync", async () => {
+		const storage = createMemoryChatStorage([{ id: "thread-a", title: "Alpha", updatedAt: "2026-03-03" }]);
+		const controller = createController(storage, "thread-a");
+
+		await controller.deleteThread("thread-a");
+
+		await controller.syncThreadMetadata("thread-a", [
+			{
+				id: "user-1",
+				role: "user",
+				parts: [{ type: "text", content: "Stale message" }]
+			},
+			{
+				id: "assistant-1",
+				role: "assistant",
+				parts: [{ type: "text", content: "Stale preview" }]
+			}
+		]);
+
+		expect(await storage.getThread("thread-a")).toBeNull();
+	});
+
+	it("creates a replacement thread when deleting the last thread", async () => {
+		const storage = createMemoryChatStorage([{ id: "thread-a", title: "Alpha", updatedAt: "2026-03-03" }]);
+		const controller = createController(storage, "thread-a");
+
+		await controller.deleteThread("thread-a");
+
+		expect(controller.selectedThreadId).not.toBeNull();
+		expect(controller.selectedThreadId).not.toBe("thread-a");
+		expect(controller.threads).toHaveLength(1);
+	});
 });
