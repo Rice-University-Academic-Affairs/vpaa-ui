@@ -4,23 +4,11 @@ import { createAiChat, type AiChatClient } from "../client/create-chat.svelte.js
 import { DEFAULT_CHAT_ENDPOINT } from "../constants.js";
 import { buildThreadMetadataSync } from "../core/session-sync.js";
 import { createLocalChatStorage, toMessagePersistence, type ChatStorage } from "../core/storage.js";
-import {
-	normalizeDeprecatedTransport,
-	type ChatEndpoint,
-	type DeprecatedChatTransport
-} from "../core/chat.js";
+import type { ChatEndpoint } from "../core/chat.js";
 import type { AiChatThread, CreateChatThreadInput } from "../core/types.js";
 
 async function awaitValue<T>(value: T | Promise<T>): Promise<T> {
 	return await value;
-}
-
-function resolveChatEndpoint(
-	options: Pick<ChatSessionControllerOptions, "chat" | "transport">
-): ChatEndpoint {
-	if (options.chat !== undefined) return options.chat;
-	if (options.transport !== undefined) return normalizeDeprecatedTransport(options.transport);
-	return DEFAULT_CHAT_ENDPOINT;
 }
 
 export type CreateChatFactory = (
@@ -31,8 +19,6 @@ export type CreateChatFactory = (
 export type ChatSessionControllerOptions = {
 	storage?: ChatStorage;
 	chat?: ChatEndpoint;
-	/** @deprecated Use `chat` instead. */
-	transport?: DeprecatedChatTransport;
 	tools?: readonly AnyClientTool[];
 	threadId?: string | null;
 	createChat?: CreateChatFactory;
@@ -54,7 +40,7 @@ export class ChatSessionController {
 
 	constructor(options: ChatSessionControllerOptions = {}) {
 		this.storage = options.storage ?? createLocalChatStorage();
-		this.chatEndpoint = resolveChatEndpoint(options);
+		this.chatEndpoint = options.chat ?? DEFAULT_CHAT_ENDPOINT;
 		this.tools = options.tools;
 		this.selectedThreadId = options.threadId ?? null;
 		this.messagePersistence = toMessagePersistence(this.storage);

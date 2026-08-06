@@ -1,11 +1,7 @@
 import type { AnyClientTool } from "@tanstack/ai";
 import { DEFAULT_CHAT_ENDPOINT } from "../constants.js";
 import { createLocalChatStorage, type ChatStorage } from "../core/storage.js";
-import {
-	normalizeDeprecatedTransport,
-	type ChatEndpoint,
-	type DeprecatedChatTransport
-} from "../core/chat.js";
+import type { ChatEndpoint } from "../core/chat.js";
 import type { AiChatThread } from "../core/types.js";
 import type { AiChatClient } from "../client/create-chat.svelte.js";
 import { ChatSessionController } from "./session-controller.js";
@@ -13,19 +9,9 @@ import { ChatSessionController } from "./session-controller.js";
 export type CreateAiChatSessionOptions = {
 	storage?: ChatStorage;
 	chat?: ChatEndpoint;
-	/** @deprecated Use `chat` instead. */
-	transport?: DeprecatedChatTransport;
 	tools?: readonly AnyClientTool[];
 	threadId?: string;
 };
-
-function resolveChatEndpoint(
-	options: Pick<CreateAiChatSessionOptions, "chat" | "transport">
-): ChatEndpoint {
-	if (options.chat !== undefined) return options.chat;
-	if (options.transport !== undefined) return normalizeDeprecatedTransport(options.transport);
-	return DEFAULT_CHAT_ENDPOINT;
-}
 
 export function createAiChatSession(options: CreateAiChatSessionOptions = {}) {
 	let threads = $state<AiChatThread[]>([]);
@@ -34,7 +20,7 @@ export function createAiChatSession(options: CreateAiChatSessionOptions = {}) {
 
 	const controller = new ChatSessionController({
 		storage: options.storage,
-		chat: resolveChatEndpoint(options),
+		chat: options.chat ?? DEFAULT_CHAT_ENDPOINT,
 		tools: options.tools,
 		threadId: options.threadId ?? null,
 		onStateChange: () => {

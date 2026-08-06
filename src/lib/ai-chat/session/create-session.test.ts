@@ -11,7 +11,6 @@ const createAiChatMock = vi.fn(
 		threadId?: string;
 		onFinish?: () => void;
 		chat?: string;
-		transport?: unknown;
 		persistence?: unknown;
 	}) => {
 	const client = createMockChatClient({
@@ -27,7 +26,6 @@ vi.mock("../client/create-chat.svelte.js", () => ({
 		threadId?: string;
 		onFinish?: () => void;
 		chat?: string;
-		transport?: unknown;
 		persistence?: unknown;
 	}) => createAiChatMock(options)
 }));
@@ -263,21 +261,6 @@ describe("createAiChatSession", () => {
 		expect(createAiChatMock.mock.calls[0]?.[0]).toEqual(
 			expect.objectContaining({
 				chat: "/api/chat"
-			})
-		);
-	});
-
-	it("maps deprecated transport to chat", async () => {
-		const storage = createMemoryChatStorage([{ id: "thread-a", title: "Alpha", updatedAt: "2026-03-03" }]);
-		await mountSession({
-			storage,
-			threadId: "thread-a",
-			transport: "/legacy/chat"
-		});
-
-		expect(createAiChatMock.mock.calls[0]?.[0]).toEqual(
-			expect.objectContaining({
-				chat: "/legacy/chat"
 			})
 		);
 	});

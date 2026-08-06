@@ -1,5 +1,4 @@
 import type { ConnectConnectionAdapter, RunAgentInputContext } from "@tanstack/ai-client";
-import type { UIMessage } from "@tanstack/ai-client";
 import { chunksFromResponseBody, chunksFromText } from "./simple-chat-stream.js";
 
 export type ChatEndpoint = string;
@@ -51,26 +50,4 @@ export function createChatConnection(endpoint: ChatEndpoint): ConnectConnectionA
 
 export function resolveAiChat(chat: ChatEndpoint): ResolvedAiChat {
 	return { connection: createChatConnection(chat) };
-}
-
-export type DeprecatedChatTransport =
-	| string
-	| {
-			endpoint: string;
-			forwardedProps?: Record<string, unknown>;
-			props?: Record<string, unknown>;
-	  }
-	| {
-			mode: "server" | "tanstack-sse";
-			endpoint: string;
-			forwardedProps?: Record<string, unknown>;
-			props?: Record<string, unknown>;
-	  };
-
-export function normalizeDeprecatedTransport(transport: DeprecatedChatTransport): ChatEndpoint {
-	if (typeof transport === "string") return transport;
-	if ("endpoint" in transport && typeof transport.endpoint === "string") {
-		return transport.endpoint;
-	}
-	throw new Error("Invalid transport. Use `chat` with a URL string instead.");
 }

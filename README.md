@@ -32,8 +32,6 @@ const chat = createAiChatSession({
 
 Defaults work out of the box — `localStorage` for storage, `/api/chat` for chat.
 
-`transport` still works but is deprecated — use `chat` instead.
-
 ---
 
 ## Your chat endpoint

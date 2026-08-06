@@ -1,7 +1,6 @@
 import type { ConnectConnectionAdapter } from "@tanstack/ai-client";
 import { describe, expect, it, vi } from "vitest";
-import { DEFAULT_CHAT_ENDPOINT } from "../constants.js";
-import { createChatConnection, normalizeDeprecatedTransport, resolveAiChat } from "./chat.js";
+import { createChatConnection, resolveAiChat } from "./chat.js";
 
 describe("resolveAiChat", () => {
 	it("creates a JSON chat connection for endpoint strings", () => {
@@ -12,9 +11,7 @@ describe("resolveAiChat", () => {
 
 describe("createChatConnection", () => {
 	it("posts threadId and messages to the endpoint", async () => {
-		const fetchMock = vi.fn(async () =>
-			Response.json({ message: "Hello there" })
-		);
+		const fetchMock = vi.fn(async () => Response.json({ message: "Hello there" }));
 		vi.stubGlobal("fetch", fetchMock);
 
 		const connection = createChatConnection("/api/chat");
@@ -41,21 +38,5 @@ describe("createChatConnection", () => {
 		);
 
 		vi.unstubAllGlobals();
-	});
-});
-
-describe("normalizeDeprecatedTransport", () => {
-	it("accepts legacy string transports", () => {
-		expect(normalizeDeprecatedTransport("/api/chat")).toBe("/api/chat");
-	});
-
-	it("accepts legacy endpoint objects", () => {
-		expect(normalizeDeprecatedTransport({ endpoint: "/api/chat" })).toBe("/api/chat");
-	});
-
-	it("accepts legacy server mode objects", () => {
-		expect(
-			normalizeDeprecatedTransport({ mode: "server", endpoint: DEFAULT_CHAT_ENDPOINT })
-		).toBe(DEFAULT_CHAT_ENDPOINT);
 	});
 });
