@@ -1,35 +1,25 @@
 import { localStoragePersistence } from "@tanstack/ai-client";
 import type { ChatClientPersistence, ChatPersistedState } from "@tanstack/ai-client";
-import type { AiChatThread } from "$lib/types/chat.js";
+import type {
+	AiChatThread,
+	CreateChatThreadInput,
+	LocalChatStorageOptions,
+	MaybePromise,
+	UpdateChatThreadPatch
+} from "./types.js";
 
-export type ChatThreadRecord = AiChatThread;
-
-export type CreateChatThreadInput = {
-	id?: string;
-	title?: string;
-	preview?: string;
-	updatedAt?: string;
-};
-
-export type UpdateChatThreadPatch = Partial<Pick<ChatThreadRecord, "title" | "preview" | "updatedAt">>;
-
-export type MaybePromise<T> = T | Promise<T>;
+export type { AiChatThread, CreateChatThreadInput, LocalChatStorageOptions, UpdateChatThreadPatch };
 
 export interface ChatStorage {
-	listThreads(): MaybePromise<ChatThreadRecord[]>;
-	getThread(id: string): MaybePromise<ChatThreadRecord | null>;
-	createThread(input?: CreateChatThreadInput): MaybePromise<ChatThreadRecord>;
+	listThreads(): MaybePromise<AiChatThread[]>;
+	getThread(id: string): MaybePromise<AiChatThread | null>;
+	createThread(input?: CreateChatThreadInput): MaybePromise<AiChatThread>;
 	updateThread(id: string, patch: UpdateChatThreadPatch): MaybePromise<void>;
 	deleteThread(id: string): MaybePromise<void>;
 	getThreadState(threadId: string): MaybePromise<ChatPersistedState | null>;
 	setThreadState(threadId: string, state: ChatPersistedState): MaybePromise<void>;
 	removeThreadState(threadId: string): MaybePromise<void>;
 }
-
-export type LocalChatStorageOptions = {
-	keyPrefix?: string;
-	initialThreads?: ChatThreadRecord[];
-};
 
 export function toMessagePersistence(storage: ChatStorage): ChatClientPersistence {
 	return {
@@ -39,23 +29,23 @@ export function toMessagePersistence(storage: ChatStorage): ChatClientPersistenc
 	};
 }
 
-function sortThreads(threads: Iterable<ChatThreadRecord>): ChatThreadRecord[] {
+function sortThreads(threads: Iterable<AiChatThread>): AiChatThread[] {
 	return [...threads].sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
 }
 
-function readThreadCatalog(key: string): ChatThreadRecord[] {
+function readThreadCatalog(key: string): AiChatThread[] {
 	if (typeof localStorage === "undefined") return [];
 
 	try {
 		const raw = localStorage.getItem(key);
 		if (!raw) return [];
-		return JSON.parse(raw) as ChatThreadRecord[];
+		return JSON.parse(raw) as AiChatThread[];
 	} catch {
 		return [];
 	}
 }
 
-function writeThreadCatalog(key: string, threads: ChatThreadRecord[]) {
+function writeThreadCatalog(key: string, threads: AiChatThread[]) {
 	if (typeof localStorage === "undefined") return;
 	localStorage.setItem(key, JSON.stringify(threads));
 }
@@ -73,7 +63,7 @@ export function createLocalChatStorage(options: LocalChatStorageOptions = {}): C
 		listThreads: () => sortThreads(readThreadCatalog(threadsKey)),
 		getThread: (id) => readThreadCatalog(threadsKey).find((thread) => thread.id === id) ?? null,
 		createThread: (input = {}) => {
-			const thread: ChatThreadRecord = {
+			const thread: AiChatThread = {
 				id: input.id ?? crypto.randomUUID(),
 				title: input.title ?? "New chat",
 				preview: input.preview,
@@ -104,9 +94,7 @@ export function createLocalChatStorage(options: LocalChatStorageOptions = {}): C
 	};
 }
 
-export function createMemoryChatStorage(
-	initialThreads: ChatThreadRecord[] = []
-): ChatStorage {
+export function createMemoryChatStorage(initialThreads: AiChatThread[] = []): ChatStorage {
 	const threads = new Map(initialThreads.map((thread) => [thread.id, { ...thread }]));
 	const states = new Map<string, ChatPersistedState>();
 
@@ -114,7 +102,7 @@ export function createMemoryChatStorage(
 		listThreads: () => sortThreads(threads.values()),
 		getThread: (id) => threads.get(id) ?? null,
 		createThread: (input = {}) => {
-			const thread: ChatThreadRecord = {
+			const thread: AiChatThread = {
 				id: input.id ?? crypto.randomUUID(),
 				title: input.title ?? "New chat",
 				preview: input.preview,
@@ -141,7 +129,3 @@ export function createMemoryChatStorage(
 		}
 	};
 }
-
-export const createMemoryThreadStorage = createMemoryChatStorage;
-
-export type ChatThreadStorage = ChatStorage;

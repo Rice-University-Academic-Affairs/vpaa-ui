@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AnyClientTool } from "@tanstack/ai";
+import { DEFAULT_CHAT_TRANSPORT } from "../constants.js";
 
 const createChatMock = vi.fn((options: Record<string, unknown>) => ({
 	_opts: options,
@@ -17,19 +19,19 @@ describe("createAiChat", () => {
 		createChatMock.mockClear();
 	});
 
-	it("defaults transport to /api/chat", async () => {
-		const { createAiChat } = await import("./create-ai-chat.svelte.js");
+	it("defaults transport to the shared chat endpoint", async () => {
+		const { createAiChat } = await import("./create-chat.svelte.js");
 		createAiChat();
 
 		expect(createChatMock).toHaveBeenCalledWith(
 			expect.objectContaining({
-				connection: { adapter: "sse", endpoint: "/api/chat" }
+				connection: { adapter: "sse", endpoint: DEFAULT_CHAT_TRANSPORT }
 			})
 		);
 	});
 
 	it("forwards explicit transport endpoints", async () => {
-		const { createAiChat } = await import("./create-ai-chat.svelte.js");
+		const { createAiChat } = await import("./create-chat.svelte.js");
 		createAiChat({ transport: "/custom/chat" });
 
 		expect(createChatMock).toHaveBeenCalledWith(
@@ -40,7 +42,7 @@ describe("createAiChat", () => {
 	});
 
 	it("forwards forwardedProps from transport objects", async () => {
-		const { createAiChat } = await import("./create-ai-chat.svelte.js");
+		const { createAiChat } = await import("./create-chat.svelte.js");
 		createAiChat({
 			transport: {
 				endpoint: "/api/chat",
@@ -56,7 +58,7 @@ describe("createAiChat", () => {
 	});
 
 	it("uses server persistence when transport mode is server", async () => {
-		const { createAiChat } = await import("./create-ai-chat.svelte.js");
+		const { createAiChat } = await import("./create-chat.svelte.js");
 		createAiChat({
 			transport: { mode: "server", endpoint: "/api/chat" }
 		});
@@ -74,7 +76,7 @@ describe("createAiChat", () => {
 			setItem: vi.fn(),
 			removeItem: vi.fn()
 		};
-		const { createAiChat } = await import("./create-ai-chat.svelte.js");
+		const { createAiChat } = await import("./create-chat.svelte.js");
 
 		createAiChat({
 			transport: { mode: "server", endpoint: "/api/chat" },
@@ -89,8 +91,8 @@ describe("createAiChat", () => {
 	});
 
 	it("forwards threadId and tools", async () => {
-		const tools = [{ name: "demo_tool" }];
-		const { createAiChat } = await import("./create-ai-chat.svelte.js");
+		const tools = [{ name: "demo_tool" }] as unknown as readonly AnyClientTool[];
+		const { createAiChat } = await import("./create-chat.svelte.js");
 
 		createAiChat({
 			threadId: "thread-123",

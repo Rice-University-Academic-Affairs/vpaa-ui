@@ -24,49 +24,30 @@ export { default as AiChatMessages } from "./components/ai-chat/AiChatMessages.s
 export { default as AiChatMessage } from "./components/ai-chat/AiChatMessage.svelte";
 export { default as AiChatInput } from "./components/ai-chat/AiChatInput.svelte";
 
-export { createAiChat } from "./ai-chat/create-ai-chat.svelte.js";
-export type { AiChatClient, CreateAiChatOptions } from "./ai-chat/create-ai-chat.svelte.js";
-
-export { createAiChatSession } from "./ai-chat/create-ai-chat-session.svelte.js";
-export type {
-	AiChatSession,
-	CreateAiChatSessionOptions
-} from "./ai-chat/create-ai-chat-session.svelte.js";
-
 export {
+	createAiChatSession,
+	createAiChat,
 	createLocalChatStorage,
 	createMemoryChatStorage,
-	createMemoryThreadStorage,
-	toMessagePersistence,
+	resolveAiChatTransport,
+	clientTools,
+	toolDefinition,
+	DEFAULT_CHAT_TRANSPORT,
+	type AiChatSession,
+	type CreateAiChatSessionOptions,
+	type AiChatClient,
+	type CreateAiChatOptions,
 	type ChatStorage,
-	type ChatThreadRecord,
-	type ChatThreadStorage,
+	type AiChatThread,
 	type CreateChatThreadInput,
 	type LocalChatStorageOptions,
-	type UpdateChatThreadPatch
-} from "./ai-chat/storage.js";
-
-export { buildThreadMetadataSync, type ThreadMetadataSync } from "./ai-chat/session-sync.js";
-
-export {
-	scrollToTopDef,
-	createScrollToTopClientTool,
-	scrollToTopClientTools
-} from "./ai-chat/client-tools.example.js";
-
-export { resolveAiChatTransport, type AiChatTransport, type ResolvedAiChatTransport } from "./ai-chat/transport.js";
-
-export { clientTools, toolDefinition } from "./ai-chat/tools.js";
-export type { AnyClientTool, ClientTool, ServerTool, ToolDefinition } from "./ai-chat/tools.js";
-
-export {
-	defaultThreadPreview,
-	defaultThreadTitle,
-	firstUserMessageText,
-	lastAssistantMessageText,
-	messageText,
-	truncateText
-} from "./ai-chat/thread-metadata.js";
+	type UpdateChatThreadPatch,
+	type AiChatTransport,
+	type AnyClientTool,
+	type ClientTool,
+	type ServerTool,
+	type ToolDefinition
+} from "./ai-chat/index.js";
 
 export { dataTableFeatures } from "./components/data-table/table-features.js";
 export type { DataTableInstance } from "./components/data-table/table-types.js";
@@ -75,7 +56,6 @@ export type { Column, ColumnStyle } from "./types/data-table.js";
 export type { AppNavGroup, AppNavItem, AppNavIcon } from "./types/navigation.js";
 export { isNavItemActive } from "./types/navigation.js";
 export type { AppShellUser, AppShellSearch, AppShellChat } from "./types/shell.js";
-export type { AiChatThread } from "./types/chat.js";
 
 export type {
 	DepartmentRow,

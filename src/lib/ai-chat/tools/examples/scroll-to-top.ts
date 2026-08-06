@@ -1,5 +1,4 @@
 import { toolDefinition } from "@tanstack/ai";
-import { clientTools } from "./tools.js";
 
 export const scrollToTopDef = toolDefinition({
 	name: "scroll_to_top",
@@ -29,5 +28,3 @@ export function createScrollToTopClientTool(scroll: (top: number) => void = (top
 		return { scrolled: true };
 	});
 }
-
-export const scrollToTopClientTools = clientTools(createScrollToTopClientTool());

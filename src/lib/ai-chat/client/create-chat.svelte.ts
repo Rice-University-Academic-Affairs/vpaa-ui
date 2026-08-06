@@ -4,7 +4,8 @@ import {
 } from "@tanstack/ai-svelte";
 import type { AnyClientTool } from "@tanstack/ai";
 import type { ChatClientOptions } from "@tanstack/ai-client";
-import { resolveAiChatTransport, type AiChatTransport } from "./transport.js";
+import { DEFAULT_CHAT_TRANSPORT } from "../constants.js";
+import { resolveAiChatTransport, type AiChatTransport } from "../core/transport.js";
 
 export type CreateAiChatOptions = {
 	transport?: AiChatTransport;
@@ -18,7 +19,7 @@ export type CreateAiChatOptions = {
 >;
 
 export function createAiChat(options: CreateAiChatOptions = {}) {
-	const transport = options.transport ?? "/api/chat";
+	const transport = options.transport ?? DEFAULT_CHAT_TRANSPORT;
 	const resolved = resolveAiChatTransport(transport);
 
 	return createChat({

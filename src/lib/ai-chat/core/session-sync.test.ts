@@ -1,7 +1,7 @@
 import type { UIMessage } from "@tanstack/ai-client";
 import { describe, expect, it } from "vitest";
 import { buildThreadMetadataSync } from "./session-sync.js";
-import type { ChatThreadRecord } from "./storage.js";
+import type { AiChatThread } from "./types.js";
 
 const messages: UIMessage[] = [
 	{
@@ -35,7 +35,7 @@ describe("buildThreadMetadataSync", () => {
 	});
 
 	it("updates preview while preserving a custom title", () => {
-		const existing: ChatThreadRecord = {
+		const existing: AiChatThread = {
 			id: "thread-1",
 			title: "Faculty trends",
 			preview: "Old preview",
@@ -54,7 +54,7 @@ describe("buildThreadMetadataSync", () => {
 	});
 
 	it("replaces the default title on first assistant reply", () => {
-		const existing: ChatThreadRecord = {
+		const existing: AiChatThread = {
 			id: "thread-1",
 			title: "New chat",
 			updatedAt: "2026-01-01"

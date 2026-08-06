@@ -3,7 +3,7 @@
 		createAiChatSession,
 		type AiChatSession,
 		type CreateAiChatSessionOptions
-	} from "../create-ai-chat-session.svelte.js";
+	} from "../session/create-session.svelte.js";
 
 	type Props = {
 		options?: CreateAiChatSessionOptions;
@@ -12,6 +12,8 @@
 
 	let { options = {}, onSession }: Props = $props();
 
-	const session = createAiChatSession(options);
-	onSession?.(session);
+	$effect(() => {
+		const session = createAiChatSession(options);
+		onSession?.(session);
+	});
 </script>

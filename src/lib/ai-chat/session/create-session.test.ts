@@ -1,12 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { UIMessage } from "@tanstack/ai-client";
-import { createMemoryChatStorage } from "./storage.js";
-import { createMockChatClient, flushAsyncWork } from "./test-utils/mock-chat-client.js";
-import { mountSession } from "./test-utils/mount-session.js";
+import { createMemoryChatStorage } from "../core/storage.js";
+import { createMockChatClient, flushAsyncWork } from "../test-utils/mock-chat-client.js";
+import { mountSession } from "../test-utils/mount-session.js";
 
 const createdClients: ReturnType<typeof createMockChatClient>[] = [];
 
-const createAiChatMock = vi.fn((options: { threadId?: string; onFinish?: () => void }) => {
+const createAiChatMock = vi.fn(
+	(options: {
+		threadId?: string;
+		onFinish?: () => void;
+		transport?: string;
+		persistence?: unknown;
+	}) => {
 	const client = createMockChatClient({
 		threadId: options.threadId,
 		onFinish: options.onFinish
@@ -15,8 +21,13 @@ const createAiChatMock = vi.fn((options: { threadId?: string; onFinish?: () => v
 	return client;
 });
 
-vi.mock("./create-ai-chat.svelte.js", () => ({
-	createAiChat: (options: { threadId?: string; onFinish?: () => void }) => createAiChatMock(options)
+vi.mock("../client/create-chat.svelte.js", () => ({
+	createAiChat: (options: {
+		threadId?: string;
+		onFinish?: () => void;
+		transport?: string;
+		persistence?: unknown;
+	}) => createAiChatMock(options)
 }));
 
 describe("createAiChatSession", () => {

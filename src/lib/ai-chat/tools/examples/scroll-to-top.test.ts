@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { clientTools } from "../index.js";
 import {
 	createScrollToTopClientTool,
 	scrollToTopDef
-} from "./client-tools.example.js";
-import { clientTools } from "./tools.js";
+} from "./scroll-to-top.js";
 
 describe("client tools example", () => {
 	it("defines an isomorphic tool the server can advertise", () => {

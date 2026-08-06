@@ -1,13 +1,6 @@
 import type { UIMessage } from "@tanstack/ai-client";
-import {
-	defaultThreadPreview,
-	defaultThreadTitle
-} from "./thread-metadata.js";
-import type {
-	ChatThreadRecord,
-	CreateChatThreadInput,
-	UpdateChatThreadPatch
-} from "./storage.js";
+import { defaultThreadPreview, defaultThreadTitle } from "./thread-metadata.js";
+import type { AiChatThread, CreateChatThreadInput, UpdateChatThreadPatch } from "./types.js";
 
 export type ThreadMetadataSync = {
 	create?: CreateChatThreadInput;
@@ -17,7 +10,7 @@ export type ThreadMetadataSync = {
 export function buildThreadMetadataSync(
 	threadId: string,
 	messages: UIMessage[],
-	existing: ChatThreadRecord | null,
+	existing: AiChatThread | null,
 	now = new Date().toISOString()
 ): ThreadMetadataSync | null {
 	if (messages.length === 0) return null;

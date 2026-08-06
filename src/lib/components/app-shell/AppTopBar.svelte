@@ -4,13 +4,14 @@
 	import UserBadge from "$lib/components/user/UserBadge.svelte";
 	import { Button } from "$lib/components/ui/button/index.js";
 	import Menu from "@lucide/svelte/icons/menu";
-	import type { AppShellChat, AppShellSearch, AppShellUser } from "$lib/types/shell.js";
+	import type { AiChatSession } from "$lib/ai-chat/session/create-session.svelte.js";
+	import type { AppShellSearch, AppShellUser } from "$lib/types/shell.js";
 
 	type Props = {
 		appName: string;
 		user?: AppShellUser;
 		search?: AppShellSearch;
-		chat?: AppShellChat;
+		chat?: AiChatSession;
 		chatOpen?: boolean;
 		onChatOpen?: () => void;
 		onMenuClick?: () => void;

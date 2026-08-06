@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	createLocalChatStorage,
 	createMemoryChatStorage,
-	createMemoryThreadStorage,
 	toMessagePersistence
 } from "./storage.js";
 
@@ -169,11 +168,5 @@ describe("createLocalChatStorage", () => {
 
 		expect(await storage.getThread(thread.id)).toBeNull();
 		expect(await storage.getThreadState(thread.id)).toBeNull();
-	});
-});
-
-describe("createMemoryThreadStorage", () => {
-	it("is an alias for createMemoryChatStorage", () => {
-		expect(createMemoryThreadStorage).toBe(createMemoryChatStorage);
 	});
 });

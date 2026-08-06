@@ -1,5 +1,5 @@
 import { render } from "@testing-library/svelte";
-import type { AiChatSession, CreateAiChatSessionOptions } from "../create-ai-chat-session.svelte.js";
+import type { AiChatSession, CreateAiChatSessionOptions } from "../session/create-session.svelte.js";
 import { flushAsyncWork } from "./mock-chat-client.js";
 import SessionHarness from "./SessionHarness.svelte";
 
