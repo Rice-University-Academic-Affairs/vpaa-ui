@@ -1,9 +1,6 @@
 export { createAiChatSession } from "./session/create-session.svelte.js";
 export type { AiChatSession, CreateAiChatSessionOptions } from "./session/create-session.svelte.js";
 
-export { createAiChat } from "./client/create-chat.svelte.js";
-export type { AiChatClient, CreateAiChatOptions } from "./client/create-chat.svelte.js";
-
 export {
 	createLocalChatStorage,
 	createMemoryChatStorage,
@@ -17,7 +14,7 @@ export type {
 	UpdateChatThreadPatch
 } from "./core/types.js";
 
-export { resolveAiChatTransport, type AiChatTransport } from "./core/transport.js";
+export type { AiChatTransport } from "./core/transport.js";
 
 export { clientTools, toolDefinition } from "./tools/index.js";
 export type { AnyClientTool, ClientTool, ServerTool, ToolDefinition } from "./tools/index.js";

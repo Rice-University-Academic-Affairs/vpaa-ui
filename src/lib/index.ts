@@ -26,17 +26,13 @@ export { default as AiChatInput } from "./components/ai-chat/AiChatInput.svelte"
 
 export {
 	createAiChatSession,
-	createAiChat,
 	createLocalChatStorage,
 	createMemoryChatStorage,
-	resolveAiChatTransport,
 	clientTools,
 	toolDefinition,
 	DEFAULT_CHAT_TRANSPORT,
 	type AiChatSession,
 	type CreateAiChatSessionOptions,
-	type AiChatClient,
-	type CreateAiChatOptions,
 	type ChatStorage,
 	type AiChatThread,
 	type CreateChatThreadInput,

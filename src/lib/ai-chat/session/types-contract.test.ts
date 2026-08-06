@@ -3,8 +3,14 @@ import type { AiChatSession } from "../session/create-session.svelte.js";
 import type { ChatStorage } from "../core/storage.js";
 import type { AiChatThread } from "../core/types.js";
 import type { AppShellChat } from "../../types/shell.js";
+import * as publicApi from "../index.js";
 
 describe("public type contracts", () => {
+	it("exposes session-first chat APIs only", () => {
+		expect(publicApi).toHaveProperty("createAiChatSession");
+		expect(publicApi).not.toHaveProperty("createAiChat");
+		expect(publicApi).not.toHaveProperty("resolveAiChatTransport");
+	});
 	it("uses AiChatThread throughout storage types", () => {
 		const thread: AiChatThread = {
 			id: "thread-1",
