@@ -30,6 +30,6 @@ export function createShowcaseChatSession() {
 		storage: createLocalChatStorage({ initialThreads: DEMO_CHAT_THREADS }),
 		chat: DEFAULT_CHAT_ENDPOINT,
 		threadId: DEMO_CHAT_THREADS[0]?.id,
-		tools: clientTools(createScrollToTopClientTool())
+		clientTools: clientTools(createScrollToTopClientTool())
 	});
 }

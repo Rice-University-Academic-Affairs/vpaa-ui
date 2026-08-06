@@ -3,12 +3,12 @@ import { createMockChatStream } from "./mock-stream.js";
 import { serverTools } from "./tools.js";
 
 export const POST = createChatRouteHandler({
-	tools: serverTools,
+	serverTools,
 	createStream: (context) =>
 		createMockChatStream({
 			messages: context.messages,
 			threadId: context.threadId,
 			runId: context.runId,
-			tools: context.mergedTools
+			tools: context.allTools
 		})
 });

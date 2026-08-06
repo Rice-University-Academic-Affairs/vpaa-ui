@@ -25,8 +25,8 @@ A full-stack SvelteKit app wires up three things:
 Browser                              Your SvelteKit API
 ────────                             ──────────────────
 createAiChatSession  ──POST /api/chat──►  createChatRouteHandler
-  storage (threads)                         llmAdapter (OpenAI, etc.)
-  client tools                              server tools
+  storage (threads)                         adapter (OpenAI, etc.)
+  clientTools                               serverTools
 ```
 
 Defaults work out of the box for local development: `localStorage` storage and `/api/chat` endpoint.
@@ -74,21 +74,13 @@ Use `createLocalChatStorage()` for prototyping and `createMemoryChatStorage()` i
 
 ---
 
-## 2. Client session
-
-Create the session once and pass it to `AppShell` (or `AiChat` directly).
+## 2. Client session + client tools
 
 ```ts
-// src/lib/chat/session.ts
-import {
-  clientTools,
-  createAiChatSession,
-  createLocalChatStorage,
-  toolDefinition
-} from "vpaa-ui";
-import { chatStorage } from "./storage.js";
+// src/lib/chat/client-tools.ts
+import { clientTools, toolDefinition } from "vpaa-ui";
 
-const highlightRow = toolDefinition({
+export const highlightRow = toolDefinition({
   name: "highlight_row",
   description: "Highlight a table row by id",
   inputSchema: {
@@ -106,10 +98,19 @@ const highlightRow = toolDefinition({
   return { highlighted: true };
 });
 
+export const chatClientTools = clientTools(highlightRow);
+```
+
+```ts
+// src/lib/chat/session.ts
+import { createAiChatSession } from "vpaa-ui";
+import { chatClientTools } from "./client-tools.js";
+import { chatStorage } from "./storage.js";
+
 export const chat = createAiChatSession({
   storage: chatStorage,
   chat: "/api/chat",
-  tools: clientTools(highlightRow)
+  clientTools: chatClientTools
 });
 ```
 
@@ -125,39 +126,31 @@ export const chat = createAiChatSession({
 </AppShell>
 ```
 
-### Client tools
-
-Client tools run in the browser. Define with `toolDefinition(...).client(fn)`, then register with `clientTools(...)` on the session. The client advertises them to the server on every request — you don't send them manually.
+Client tools run in the browser. Register them with `clientTools` on the session — the client advertises them to the server on every request automatically.
 
 ---
 
-## 3. Server route handler
+## 3. Server route handler + server tools + LLM
 
-Export a SvelteKit `POST` handler with `createChatRouteHandler`. It handles AG-UI request parsing, merging client + server tools, and SSE responses.
+### LLM adapter
 
-### Connect your LLM provider
-
-Install a TanStack AI provider package and create an **LLM adapter** — the object that tells TanStack which model to call:
+Install a TanStack AI provider package. The **adapter** is the object that connects to your model (OpenAI, Anthropic, etc.):
 
 ```sh
 npm install @tanstack/ai-openai
 ```
 
 ```ts
-// src/routes/api/chat/llm.ts
+// src/routes/api/chat/adapter.ts
 import { openaiText } from "@tanstack/ai-openai";
 import { OPENAI_API_KEY } from "$env/static/private";
 
-export const llmAdapter = openaiText("gpt-4o", {
+export const adapter = openaiText("gpt-4o", {
   apiKey: OPENAI_API_KEY
 });
 ```
 
-Other providers work the same way (`@tanstack/ai-anthropic`, etc.). See [TanStack AI docs](https://tanstack.com/ai).
-
-### Define server tools
-
-Server tools run on your machine. Same `toolDefinition` as the client, but use `.server(fn)`:
+### Server tools
 
 ```ts
 // src/routes/api/chat/tools.ts
@@ -182,34 +175,34 @@ export const serverTools = [
 ];
 ```
 
-### Export the route
+### Route handler
 
 ```ts
 // src/routes/api/chat/+server.ts
 import { createChatRouteHandler } from "vpaa-ui";
-import { llmAdapter } from "./llm.js";
+import { adapter } from "./adapter.js";
 import { serverTools } from "./tools.js";
 
 export const POST = createChatRouteHandler({
-  tools: serverTools,
-  llmAdapter
+  serverTools,
+  adapter
 });
 ```
 
-That's the full server integration. `llmAdapter` is the LLM (the brain). `serverTools` are capabilities it can invoke. Client tools from the browser are merged in automatically.
+`createChatRouteHandler` merges `serverTools` with the session's `clientTools` into `allTools` for the agent. You don't merge them yourself.
 
 ### Mock agent (no LLM)
 
-For demos or tests without a live model, pass `createStream` instead of `llmAdapter`:
+For demos or tests without a live model, pass `createStream` instead of `adapter`:
 
 ```ts
 export const POST = createChatRouteHandler({
-  tools: serverTools,
+  serverTools,
   createStream: (context) => myMockStream(context)
 });
 ```
 
-The showcase in this repo uses this pattern — see `src/routes/api/chat/+server.ts`.
+The showcase uses this pattern — see `src/routes/api/chat/+server.ts`.
 
 ---
 
@@ -218,11 +211,8 @@ The showcase in this repo uses this pattern — see `src/routes/api/chat/+server
 | | Client tool | Server tool |
 |---|---|---|
 | Define | `toolDefinition(...).client(fn)` | `toolDefinition(...).server(fn)` |
-| Register | `tools: clientTools(...)` on session | `tools: serverTools` on route handler |
+| Register | `clientTools: clientTools(...)` on session | `serverTools: [...]` on route handler |
 | Runs in | Browser | Your server |
-| Example | Scroll page, highlight row | Query database, call internal API |
-
-Both sides use the same `toolDefinition` shape. TanStack handles the wire protocol.
 
 ---
 

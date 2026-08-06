@@ -29,7 +29,7 @@ vi.mock("../client/create-chat.svelte.js", () => ({
 		onFinish?: () => void;
 		chat?: string;
 		persistence?: unknown;
-		tools?: unknown;
+		clientTools?: unknown;
 	}) => createAiChatMock(options)
 }));
 
@@ -280,10 +280,10 @@ describe("createAiChatSession", () => {
 	});
 
 	it("forwards client tools to createAiChat", async () => {
-		const tools = [{ name: "scroll_to_top" }] as unknown as readonly AnyClientTool[];
+		const clientToolsList = [{ name: "scroll_to_top" }] as unknown as readonly AnyClientTool[];
 		const storage = createMemoryChatStorage([{ id: "thread-a", title: "Alpha", updatedAt: "2026-03-03" }]);
-		await mountSession({ storage, threadId: "thread-a", tools });
+		await mountSession({ storage, threadId: "thread-a", clientTools: clientToolsList });
 
-		expect(createAiChatMock.mock.calls[0]?.[0]?.tools).toBe(tools);
+		expect(createAiChatMock.mock.calls[0]?.[0]?.tools).toBe(clientToolsList);
 	});
 });

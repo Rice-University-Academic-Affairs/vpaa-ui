@@ -111,7 +111,7 @@ describe("AI chat integration", () => {
 			storage,
 			chat: server.url,
 			threadId: "thread-tools",
-			tools: clientTools(createSetFlagClientTool(() => {}))
+			clientTools: clientTools(createSetFlagClientTool(() => {}))
 		});
 		await storage.createThread({ id: "thread-tools", title: "Tool chat" });
 
@@ -134,7 +134,7 @@ describe("AI chat integration", () => {
 			storage,
 			chat: server.url,
 			threadId: "thread-client-tool",
-			tools: clientTools(
+			clientTools: clientTools(
 				createSetFlagClientTool((value) => {
 					executed.push(value);
 				})

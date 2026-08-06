@@ -53,7 +53,7 @@ export async function startTestChatServer(): Promise<TestChatServer> {
 	const requests: CapturedChatRequest[] = [];
 
 	const handler = createChatRouteHandler({
-		tools: testServerTools,
+		serverTools: testServerTools,
 		onRequest: (context) => {
 			requests.push({
 				threadId: context.threadId,
@@ -68,7 +68,7 @@ export async function startTestChatServer(): Promise<TestChatServer> {
 				messages: context.messages,
 				threadId: context.threadId,
 				runId: context.runId,
-				tools: context.mergedTools,
+				tools: context.allTools,
 				resume: context.resume
 			})
 	});

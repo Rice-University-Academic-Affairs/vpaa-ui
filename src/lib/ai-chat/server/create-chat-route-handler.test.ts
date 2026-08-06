@@ -67,9 +67,9 @@ function createRequest(body: unknown = validParams()) {
 }
 
 describe("createChatRouteHandler", () => {
-	it("requires either llmAdapter or createStream", () => {
-		expect(() => createChatRouteHandler({ tools: [serverTool] } as never)).toThrow(
-			/llmAdapter or createStream/
+	it("requires either adapter or createStream", () => {
+		expect(() => createChatRouteHandler({ serverTools: [serverTool] } as never)).toThrow(
+			/adapter or createStream/
 		);
 	});
 
@@ -77,7 +77,7 @@ describe("createChatRouteHandler", () => {
 		chatParamsFromRequestMock.mockResolvedValueOnce(validParams());
 
 		const handler = createChatRouteHandler({
-			tools: [serverTool],
+			serverTools: [serverTool],
 			createStream: () => testStream()
 		});
 
@@ -93,7 +93,7 @@ describe("createChatRouteHandler", () => {
 		);
 
 		const handler = createChatRouteHandler({
-			tools: [serverTool],
+			serverTools: [serverTool],
 			createStream: () => testStream()
 		});
 
@@ -103,12 +103,12 @@ describe("createChatRouteHandler", () => {
 		expect(await response.text()).toContain("Invalid AG-UI request body");
 	});
 
-	it("merges server and client tools before calling createStream", async () => {
+	it("merges server and client tools into allTools before calling createStream", async () => {
 		chatParamsFromRequestMock.mockResolvedValueOnce(validParams());
 		const contexts: ChatRouteHandlerContext[] = [];
 
 		const handler = createChatRouteHandler({
-			tools: [serverTool],
+			serverTools: [serverTool],
 			createStream: (context) => {
 				contexts.push(context);
 				return testStream();
@@ -117,18 +117,18 @@ describe("createChatRouteHandler", () => {
 
 		await handler({ request: createRequest() });
 
-		expect(contexts[0]?.mergedTools.map((tool) => tool.name)).toEqual([
+		expect(contexts[0]?.allTools.map((tool) => tool.name)).toEqual([
 			"server_echo",
 			"client_flag"
 		]);
 	});
 
-	it("calls onRequest with the merged handler context", async () => {
+	it("calls onRequest with clientTools and allTools", async () => {
 		chatParamsFromRequestMock.mockResolvedValueOnce(validParams());
 		const onRequest = vi.fn();
 
 		const handler = createChatRouteHandler({
-			tools: [serverTool],
+			serverTools: [serverTool],
 			onRequest,
 			createStream: () => testStream()
 		});
@@ -144,7 +144,7 @@ describe("createChatRouteHandler", () => {
 						name: "client_flag"
 					})
 				],
-				mergedTools: expect.arrayContaining([
+				allTools: expect.arrayContaining([
 					expect.objectContaining({ name: "server_echo" }),
 					expect.objectContaining({ name: "client_flag" })
 				])
@@ -152,21 +152,21 @@ describe("createChatRouteHandler", () => {
 		);
 	});
 
-	it("delegates to chat() when an llmAdapter is provided", async () => {
+	it("delegates to chat() when an adapter is provided", async () => {
 		chatParamsFromRequestMock.mockResolvedValueOnce(validParams());
 		chatMock.mockReturnValueOnce(testStream());
 
-		const llmAdapter = { name: "test-adapter" };
+		const adapter = { name: "test-adapter" };
 		const handler = createChatRouteHandler({
-			tools: [serverTool],
-			llmAdapter: llmAdapter as never
+			serverTools: [serverTool],
+			adapter: adapter as never
 		});
 
 		await handler({ request: createRequest() });
 
 		expect(chatMock).toHaveBeenCalledWith(
 			expect.objectContaining({
-				adapter: llmAdapter,
+				adapter,
 				threadId: "thread-1",
 				runId: "run-1",
 				tools: expect.arrayContaining([

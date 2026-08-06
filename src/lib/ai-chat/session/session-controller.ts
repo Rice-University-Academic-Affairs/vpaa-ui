@@ -19,7 +19,7 @@ export type CreateChatFactory = (
 export type ChatSessionControllerOptions = {
 	storage?: ChatStorage;
 	chat?: ChatEndpoint;
-	tools?: readonly AnyClientTool[];
+	clientTools?: readonly AnyClientTool[];
 	threadId?: string | null;
 	createChat?: CreateChatFactory;
 	onStateChange?: () => void;
@@ -34,14 +34,14 @@ export class ChatSessionController {
 	readonly messagePersistence: ReturnType<typeof toMessagePersistence>;
 
 	private readonly storage: ChatStorage;
-	private readonly tools?: readonly AnyClientTool[];
+	private readonly clientTools?: readonly AnyClientTool[];
 	private readonly createChat: CreateChatFactory;
 	private readonly onStateChange?: () => void;
 
 	constructor(options: ChatSessionControllerOptions = {}) {
 		this.storage = options.storage ?? createLocalChatStorage();
 		this.chatEndpoint = options.chat ?? DEFAULT_CHAT_ENDPOINT;
-		this.tools = options.tools;
+		this.clientTools = options.clientTools;
 		this.selectedThreadId = options.threadId ?? null;
 		this.messagePersistence = toMessagePersistence(this.storage);
 		this.onStateChange = options.onStateChange;
@@ -52,7 +52,7 @@ export class ChatSessionController {
 					chat: this.chatEndpoint,
 					threadId: threadId ?? undefined,
 					persistence: this.messagePersistence,
-					tools: this.tools,
+					tools: this.clientTools,
 					onFinish: () => {
 						onFinish(client.messages);
 					}

@@ -9,7 +9,7 @@ import { ChatSessionController } from "./session-controller.js";
 export type CreateAiChatSessionOptions = {
 	storage?: ChatStorage;
 	chat?: ChatEndpoint;
-	tools?: readonly AnyClientTool[];
+	clientTools?: readonly AnyClientTool[];
 	threadId?: string;
 };
 
@@ -21,7 +21,7 @@ export function createAiChatSession(options: CreateAiChatSessionOptions = {}) {
 	const controller = new ChatSessionController({
 		storage: options.storage,
 		chat: options.chat ?? DEFAULT_CHAT_ENDPOINT,
-		tools: options.tools,
+		clientTools: options.clientTools,
 		threadId: options.threadId ?? null,
 		onStateChange: () => {
 			threads = controller.threads;

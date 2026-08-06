@@ -23,7 +23,7 @@ describe("client tools example", () => {
 		expect(scrolledTo).toBe(0);
 	});
 
-	it("wraps client tools for createAiChatSession tools option", () => {
+	it("wraps client tools for createAiChatSession clientTools option", () => {
 		const tool = createScrollToTopClientTool();
 		const tools = clientTools(tool);
 
