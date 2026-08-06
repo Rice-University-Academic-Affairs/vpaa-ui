@@ -1,19 +1,43 @@
+import type { ChatPersistedState } from "@tanstack/ai-client";
 import { describe, expect, it } from "vitest";
-import { createMemoryThreadStorage } from "./storage.js";
+import {
+	createMemoryChatStorage,
+	createMemoryThreadStorage,
+	toMessagePersistence
+} from "./storage.js";
 
-describe("createMemoryThreadStorage", () => {
-	it("creates and lists threads", async () => {
-		const storage = createMemoryThreadStorage();
-		const thread = await storage.createThread({ title: "Budget review" });
+const sampleState: ChatPersistedState = {
+	messages: [
+		{
+			id: "m1",
+			role: "user",
+			parts: [{ type: "text", content: "Hello" }]
+		}
+	]
+};
+
+describe("createMemoryChatStorage", () => {
+	it("creates and lists threads by updatedAt descending", async () => {
+		const storage = createMemoryChatStorage([
+			{ id: "older", title: "Older", updatedAt: "2026-01-01" },
+			{ id: "newer", title: "Newer", updatedAt: "2026-03-01" }
+		]);
 
 		const threads = await storage.listThreads();
-		expect(threads).toHaveLength(1);
-		expect(threads[0]?.id).toBe(thread.id);
-		expect(threads[0]?.title).toBe("Budget review");
+		expect(threads.map((thread) => thread.id)).toEqual(["newer", "older"]);
 	});
 
-	it("updates and deletes threads", async () => {
-		const storage = createMemoryThreadStorage();
+	it("creates threads with defaults", async () => {
+		const storage = createMemoryChatStorage();
+		const thread = await storage.createThread({ title: "Budget review" });
+
+		expect(thread.title).toBe("Budget review");
+		expect(thread.updatedAt).toBeTruthy();
+		expect(await storage.getThread(thread.id)).toEqual(thread);
+	});
+
+	it("updates thread metadata", async () => {
+		const storage = createMemoryChatStorage();
 		const thread = await storage.createThread({ title: "Draft" });
 
 		await storage.updateThread(thread.id, {
@@ -25,8 +49,55 @@ describe("createMemoryThreadStorage", () => {
 			title: "Final",
 			preview: "Looks good"
 		});
+	});
 
+	it("stores and retrieves message state per thread", async () => {
+		const storage = createMemoryChatStorage();
+		const thread = await storage.createThread({ title: "Chat" });
+
+		await storage.setThreadState(thread.id, sampleState);
+		expect(await storage.getThreadState(thread.id)).toEqual(sampleState);
+	});
+
+	it("removes message state independently", async () => {
+		const storage = createMemoryChatStorage();
+		const thread = await storage.createThread({ title: "Chat" });
+
+		await storage.setThreadState(thread.id, sampleState);
+		await storage.removeThreadState(thread.id);
+
+		expect(await storage.getThreadState(thread.id)).toBeNull();
+		expect(await storage.getThread(thread.id)).not.toBeNull();
+	});
+
+	it("deletes thread metadata and message state together", async () => {
+		const storage = createMemoryChatStorage();
+		const thread = await storage.createThread({ title: "Chat" });
+
+		await storage.setThreadState(thread.id, sampleState);
 		await storage.deleteThread(thread.id);
+
 		expect(await storage.getThread(thread.id)).toBeNull();
+		expect(await storage.getThreadState(thread.id)).toBeNull();
+	});
+});
+
+describe("toMessagePersistence", () => {
+	it("bridges storage to TanStack AI persistence", async () => {
+		const storage = createMemoryChatStorage();
+		const thread = await storage.createThread({ title: "Chat" });
+		const persistence = toMessagePersistence(storage);
+
+		await persistence.setItem(thread.id, sampleState);
+		expect(await persistence.getItem(thread.id)).toEqual(sampleState);
+
+		await persistence.removeItem(thread.id);
+		expect(await persistence.getItem(thread.id)).toBeNull();
+	});
+});
+
+describe("createMemoryThreadStorage", () => {
+	it("is an alias for createMemoryChatStorage", () => {
+		expect(createMemoryThreadStorage).toBe(createMemoryChatStorage);
 	});
 });

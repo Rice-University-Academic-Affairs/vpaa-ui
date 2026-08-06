@@ -34,17 +34,28 @@ export type {
 } from "./ai-chat/create-ai-chat-session.svelte.js";
 
 export {
+	createMemoryChatStorage,
 	createMemoryThreadStorage,
+	toMessagePersistence,
+	type ChatStorage,
 	type ChatThreadRecord,
 	type ChatThreadStorage,
 	type CreateChatThreadInput,
 	type UpdateChatThreadPatch
 } from "./ai-chat/storage.js";
 
+export { buildThreadMetadataSync, type ThreadMetadataSync } from "./ai-chat/session-sync.js";
+
+export {
+	scrollToTopDef,
+	createScrollToTopClientTool,
+	scrollToTopClientTools
+} from "./ai-chat/client-tools.example.js";
+
 export { resolveAiChatTransport, type AiChatTransport, type ResolvedAiChatTransport } from "./ai-chat/transport.js";
 
-export { clientTools } from "./ai-chat/tools.js";
-export type { AnyClientTool } from "./ai-chat/tools.js";
+export { clientTools, toolDefinition } from "./ai-chat/tools.js";
+export type { AnyClientTool, ClientTool, ServerTool, ToolDefinition } from "./ai-chat/tools.js";
 
 export {
 	localStoragePersistence,

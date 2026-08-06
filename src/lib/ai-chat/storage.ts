@@ -1,3 +1,4 @@
+import type { ChatClientPersistence, ChatPersistedState } from "@tanstack/ai-client";
 import type { AiChatThread } from "$lib/types/chat.js";
 
 export type ChatThreadRecord = AiChatThread;
@@ -13,25 +14,37 @@ export type UpdateChatThreadPatch = Partial<Pick<ChatThreadRecord, "title" | "pr
 
 export type MaybePromise<T> = T | Promise<T>;
 
-export interface ChatThreadStorage {
+export interface ChatStorage {
 	listThreads(): MaybePromise<ChatThreadRecord[]>;
 	getThread(id: string): MaybePromise<ChatThreadRecord | null>;
 	createThread(input?: CreateChatThreadInput): MaybePromise<ChatThreadRecord>;
 	updateThread(id: string, patch: UpdateChatThreadPatch): MaybePromise<void>;
 	deleteThread(id: string): MaybePromise<void>;
+	getThreadState(threadId: string): MaybePromise<ChatPersistedState | null>;
+	setThreadState(threadId: string, state: ChatPersistedState): MaybePromise<void>;
+	removeThreadState(threadId: string): MaybePromise<void>;
 }
 
-export function createMemoryThreadStorage(
+export function toMessagePersistence(storage: ChatStorage): ChatClientPersistence {
+	return {
+		getItem: (threadId) => storage.getThreadState(threadId),
+		setItem: (threadId, state) => storage.setThreadState(threadId, state),
+		removeItem: (threadId) => storage.removeThreadState(threadId)
+	};
+}
+
+function sortThreads(threads: Iterable<ChatThreadRecord>): ChatThreadRecord[] {
+	return [...threads].sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
+}
+
+export function createMemoryChatStorage(
 	initialThreads: ChatThreadRecord[] = []
-): ChatThreadStorage {
+): ChatStorage {
 	const threads = new Map(initialThreads.map((thread) => [thread.id, { ...thread }]));
+	const states = new Map<string, ChatPersistedState>();
 
 	return {
-		listThreads: () => [...threads.values()].sort((a, b) => {
-			const aTime = a.updatedAt ?? "";
-			const bTime = b.updatedAt ?? "";
-			return bTime.localeCompare(aTime);
-		}),
+		listThreads: () => sortThreads(threads.values()),
 		getThread: (id) => threads.get(id) ?? null,
 		createThread: (input = {}) => {
 			const thread: ChatThreadRecord = {
@@ -50,6 +63,18 @@ export function createMemoryThreadStorage(
 		},
 		deleteThread: (id) => {
 			threads.delete(id);
+			states.delete(id);
+		},
+		getThreadState: (threadId) => states.get(threadId) ?? null,
+		setThreadState: (threadId, state) => {
+			states.set(threadId, structuredClone(state));
+		},
+		removeThreadState: (threadId) => {
+			states.delete(threadId);
 		}
 	};
 }
+
+export const createMemoryThreadStorage = createMemoryChatStorage;
+
+export type ChatThreadStorage = ChatStorage;

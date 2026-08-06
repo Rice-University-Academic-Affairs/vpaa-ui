@@ -1,20 +1,19 @@
 import type { AnyClientTool } from "@tanstack/ai";
-import type { ChatPersistenceOption } from "@tanstack/ai-client";
 import { createAiChat, type AiChatClient } from "./create-ai-chat.svelte.js";
+import { buildThreadMetadataSync } from "./session-sync.js";
 import {
-	createMemoryThreadStorage,
+	createMemoryChatStorage,
+	toMessagePersistence,
 	type ChatThreadRecord,
-	type ChatThreadStorage,
+	type ChatStorage,
 	type CreateChatThreadInput
 } from "./storage.js";
-import { defaultThreadPreview, defaultThreadTitle } from "./thread-metadata.js";
 import { resolveAiChatTransport, type AiChatTransport } from "./transport.js";
 
 export type CreateAiChatSessionOptions = {
-	threadStorage?: ChatThreadStorage;
+	storage?: ChatStorage;
 	transport?: AiChatTransport;
 	endpoint?: string;
-	messagePersistence?: ChatPersistenceOption;
 	clientTools?: readonly AnyClientTool[];
 	threadId?: string;
 };
@@ -24,10 +23,11 @@ async function awaitValue<T>(value: T | Promise<T>): Promise<T> {
 }
 
 export function createAiChatSession(options: CreateAiChatSessionOptions = {}) {
-	const threadStorage = options.threadStorage ?? createMemoryThreadStorage();
-	const transport =
-		options.transport ?? options.endpoint ?? "/api/chat";
+	const storage = options.storage ?? createMemoryChatStorage();
+	const transport = options.transport ?? options.endpoint ?? "/api/chat";
 	const resolvedTransport = resolveAiChatTransport(transport);
+	const messagePersistence =
+		resolvedTransport.persistence === true ? true : toMessagePersistence(storage);
 
 	let threads = $state<ChatThreadRecord[]>([]);
 	const initialThreadId = options.threadId ?? null;
@@ -38,7 +38,7 @@ export function createAiChatSession(options: CreateAiChatSessionOptions = {}) {
 		return createAiChat({
 			transport,
 			threadId: threadId ?? undefined,
-			persistence: options.messagePersistence ?? resolvedTransport.persistence,
+			persistence: messagePersistence,
 			tools: options.clientTools,
 			onFinish: () => {
 				void syncThreadMetadata(threadId);
@@ -47,36 +47,23 @@ export function createAiChatSession(options: CreateAiChatSessionOptions = {}) {
 	}
 
 	async function refreshThreads() {
-		threads = await awaitValue(threadStorage.listThreads());
+		threads = await awaitValue(storage.listThreads());
 	}
 
 	async function syncThreadMetadata(threadId: string | null) {
 		if (!threadId) return;
 
-		const messages = chat.messages;
-		if (messages.length === 0) return;
+		const sync = buildThreadMetadataSync(
+			threadId,
+			chat.messages,
+			await awaitValue(storage.getThread(threadId))
+		);
+		if (!sync) return;
 
-		const existing = await awaitValue(threadStorage.getThread(threadId));
-		const title = defaultThreadTitle(messages);
-		const preview = defaultThreadPreview(messages);
-
-		if (!existing) {
-			await awaitValue(
-				threadStorage.createThread({
-					id: threadId,
-					title,
-					preview,
-					updatedAt: new Date().toISOString()
-				})
-			);
-		} else {
-			await awaitValue(
-				threadStorage.updateThread(threadId, {
-					title: existing.title === "New chat" ? title : existing.title,
-					preview,
-					updatedAt: new Date().toISOString()
-				})
-			);
+		if (sync.create) {
+			await awaitValue(storage.createThread(sync.create));
+		} else if (sync.patch) {
+			await awaitValue(storage.updateThread(threadId, sync.patch));
 		}
 
 		await refreshThreads();
@@ -92,14 +79,14 @@ export function createAiChatSession(options: CreateAiChatSessionOptions = {}) {
 	}
 
 	async function createThread(input: CreateChatThreadInput = {}) {
-		const thread = await awaitValue(threadStorage.createThread(input));
+		const thread = await awaitValue(storage.createThread(input));
 		await refreshThreads();
 		await selectThread(thread.id);
 		return thread;
 	}
 
 	async function deleteThread(threadId: string) {
-		await awaitValue(threadStorage.deleteThread(threadId));
+		await awaitValue(storage.deleteThread(threadId));
 		await refreshThreads();
 
 		if (selectedThreadId !== threadId) return;

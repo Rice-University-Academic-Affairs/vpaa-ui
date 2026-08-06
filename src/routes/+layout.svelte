@@ -2,8 +2,7 @@
 	import { page } from "$app/state";
 	import { AppShell } from "$lib/index.js";
 	import { createAiChatSession } from "$lib/ai-chat/create-ai-chat-session.svelte.js";
-	import { createMemoryThreadStorage } from "$lib/ai-chat/storage.js";
-	import { localStoragePersistence } from "@tanstack/ai-svelte";
+	import { createMemoryChatStorage } from "$lib/ai-chat/storage.js";
 	import type { AppNavGroup } from "$lib/types/navigation.js";
 	import type { FacultyRow } from "$lib/types/drilldown.js";
 	import { faculty } from "./showcase.js";
@@ -19,7 +18,7 @@
 	];
 
 	const chatSession = createAiChatSession({
-		threadStorage: createMemoryThreadStorage([
+		storage: createMemoryChatStorage([
 			{
 				id: "thread-1",
 				title: "Faculty headcount trends",
@@ -40,7 +39,6 @@
 			}
 		]),
 		transport: "/api/chat",
-		messagePersistence: localStoragePersistence({ keyPrefix: "vpaa-ui:" }),
 		threadId: "thread-1"
 	});
 
