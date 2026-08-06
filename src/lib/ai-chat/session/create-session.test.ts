@@ -29,7 +29,7 @@ vi.mock("../client/create-chat.svelte.js", () => ({
 		onFinish?: () => void;
 		chat?: string;
 		persistence?: unknown;
-		clientTools?: unknown;
+		tools?: unknown;
 	}) => createAiChatMock(options)
 }));
 
@@ -285,5 +285,16 @@ describe("createAiChatSession", () => {
 		await mountSession({ storage, threadId: "thread-a", clientTools: clientToolsList });
 
 		expect(createAiChatMock.mock.calls[0]?.[0]?.tools).toBe(clientToolsList);
+	});
+
+	it("refreshThreads reloads thread metadata from storage", async () => {
+		const storage = createMemoryChatStorage([{ id: "thread-a", title: "Alpha", updatedAt: "2026-03-03" }]);
+		const session = await mountSession({ storage, threadId: "thread-a" });
+
+		await storage.updateThread("thread-a", { title: "Renamed" });
+		await session.refreshThreads();
+		await flushAsyncWork();
+
+		expect(session.threads.find((thread) => thread.id === "thread-a")?.title).toBe("Renamed");
 	});
 });

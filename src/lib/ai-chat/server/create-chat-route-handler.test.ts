@@ -152,6 +152,20 @@ describe("createChatRouteHandler", () => {
 		);
 	});
 
+	it("returns a 500 response for unexpected handler errors", async () => {
+		chatParamsFromRequestMock.mockRejectedValueOnce(new Error("database offline"));
+
+		const handler = createChatRouteHandler({
+			serverTools: [serverTool],
+			createStream: () => testStream()
+		});
+
+		const response = await handler({ request: createRequest() });
+
+		expect(response.status).toBe(500);
+		expect(await response.json()).toEqual({ error: "database offline" });
+	});
+
 	it("delegates to chat() when an adapter is provided", async () => {
 		chatParamsFromRequestMock.mockResolvedValueOnce(validParams());
 		chatMock.mockReturnValueOnce(testStream());

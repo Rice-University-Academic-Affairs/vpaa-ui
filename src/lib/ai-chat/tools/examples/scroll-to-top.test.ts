@@ -30,4 +30,20 @@ describe("client tools example", () => {
 		expect(tools).toHaveLength(1);
 		expect(tools[0]?.name).toBe("scroll_to_top");
 	});
+
+	it("uses the default browser scroll implementation", () => {
+		const scrolledTo: number[] = [];
+		const originalScrollTo = window.scrollTo;
+		window.scrollTo = ((options: ScrollToOptions) => {
+			scrolledTo.push(options.top ?? 0);
+		}) as typeof window.scrollTo;
+
+		try {
+			const tool = createScrollToTopClientTool();
+			expect(tool.execute?.({}, {} as never)).toEqual({ scrolled: true });
+			expect(scrolledTo).toEqual([0]);
+		} finally {
+			window.scrollTo = originalScrollTo;
+		}
+	});
 });

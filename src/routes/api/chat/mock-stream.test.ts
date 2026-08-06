@@ -57,6 +57,28 @@ describe("createMockChatStream", () => {
 		});
 	});
 
+	it("reads user text from UIMessage parts", async () => {
+		const chunks = await collectChunks(
+			createMockChatStream({
+				...baseParams,
+				messages: [
+					{
+						id: "m1",
+						role: "user",
+						parts: [{ type: "text", content: "Faculty trends" }]
+					}
+				]
+			})
+		);
+
+		expect(
+			chunks
+				.filter((chunk) => chunk.type === EventType.TEXT_MESSAGE_CONTENT)
+				.map((chunk) => ("delta" in chunk ? chunk.delta : ""))
+				.join("")
+		).toContain("Faculty trends");
+	});
+
 	it("requests client tool execution when scroll is requested", async () => {
 		const chunks = await collectChunks(
 			createMockChatStream({
