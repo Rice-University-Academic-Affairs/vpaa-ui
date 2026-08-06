@@ -1,41 +1,11 @@
 import type { ConnectConnectionAdapter, RunAgentInputContext } from "@tanstack/ai-client";
-import { fetchServerSentEvents, type ChatPersistenceOption } from "@tanstack/ai-svelte";
 import type { UIMessage } from "@tanstack/ai-client";
-import type { MaybePromise } from "./types.js";
-import { chunksFromResponseBody, chunksFromText, chunksFromTextStream } from "./simple-chat-stream.js";
+import { chunksFromResponseBody, chunksFromText } from "./simple-chat-stream.js";
 
-export type ChatHandlerInput = {
-	threadId: string;
-	messages: UIMessage[];
-	signal: AbortSignal;
-};
-
-export type ChatHandler = (
-	input: ChatHandlerInput
-) => MaybePromise<string | AsyncIterable<string>>;
-
-export type ChatConfig =
-	| string
-	| ChatHandler
-	| {
-			endpoint: string;
-			props?: Record<string, unknown>;
-	  }
-	| {
-			mode: "tanstack-sse";
-			endpoint: string;
-			props?: Record<string, unknown>;
-	  }
-	| {
-			mode: "server";
-			endpoint: string;
-			props?: Record<string, unknown>;
-	  };
+export type ChatEndpoint = string;
 
 export type ResolvedAiChat = {
 	connection: ConnectConnectionAdapter;
-	persistence?: ChatPersistenceOption;
-	forwardedProps?: Record<string, unknown>;
 };
 
 function parseJsonMessage(body: unknown): string {
@@ -47,22 +17,14 @@ function parseJsonMessage(body: unknown): string {
 	return "";
 }
 
-function createSimpleChatConnection(
-	url: string,
-	extraBody: Record<string, unknown> = {}
-): ConnectConnectionAdapter {
+export function createChatConnection(endpoint: ChatEndpoint): ConnectConnectionAdapter {
 	return {
-		async *connect(messages, data, abortSignal, runContext?: RunAgentInputContext) {
+		async *connect(messages, _data, abortSignal, runContext?: RunAgentInputContext) {
 			const threadId = runContext?.threadId ?? "";
-			const response = await fetch(url, {
+			const response = await fetch(endpoint, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					threadId,
-					messages,
-					...extraBody,
-					...data
-				}),
+				body: JSON.stringify({ threadId, messages }),
 				signal: abortSignal
 			});
 
@@ -87,56 +49,28 @@ function createSimpleChatConnection(
 	};
 }
 
-function createHandlerConnection(handler: ChatHandler): ConnectConnectionAdapter {
-	return {
-		async *connect(messages, _data, abortSignal, runContext?: RunAgentInputContext) {
-			const threadId = runContext?.threadId ?? "";
-			if (!abortSignal) {
-				throw new Error("Chat handler requires an AbortSignal");
-			}
-
-			const result = await handler({
-				threadId,
-				messages: messages as UIMessage[],
-				signal: abortSignal
-			});
-
-			if (typeof result === "string") {
-				yield* chunksFromText(result, threadId);
-				return;
-			}
-
-			yield* chunksFromTextStream(result, threadId, abortSignal);
-		}
-	};
+export function resolveAiChat(chat: ChatEndpoint): ResolvedAiChat {
+	return { connection: createChatConnection(chat) };
 }
 
-export function resolveAiChat(chat: ChatConfig): ResolvedAiChat {
-	if (typeof chat === "function") {
-		return { connection: createHandlerConnection(chat) };
-	}
+export type DeprecatedChatTransport =
+	| string
+	| {
+			endpoint: string;
+			forwardedProps?: Record<string, unknown>;
+			props?: Record<string, unknown>;
+	  }
+	| {
+			mode: "server" | "tanstack-sse";
+			endpoint: string;
+			forwardedProps?: Record<string, unknown>;
+			props?: Record<string, unknown>;
+	  };
 
-	if (typeof chat === "string") {
-		return { connection: createSimpleChatConnection(chat) };
+export function normalizeDeprecatedTransport(transport: DeprecatedChatTransport): ChatEndpoint {
+	if (typeof transport === "string") return transport;
+	if ("endpoint" in transport && typeof transport.endpoint === "string") {
+		return transport.endpoint;
 	}
-
-	if ("mode" in chat && chat.mode === "tanstack-sse") {
-		return {
-			connection: fetchServerSentEvents(chat.endpoint),
-			forwardedProps: chat.props
-		};
-	}
-
-	if ("mode" in chat && chat.mode === "server") {
-		return {
-			connection: createSimpleChatConnection(chat.endpoint, chat.props ?? {}),
-			persistence: true,
-			forwardedProps: chat.props
-		};
-	}
-
-	return {
-		connection: createSimpleChatConnection(chat.endpoint, chat.props ?? {}),
-		forwardedProps: chat.props
-	};
+	throw new Error("Invalid transport. Use `chat` with a URL string instead.");
 }

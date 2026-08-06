@@ -10,8 +10,7 @@ const createChatMock = vi.fn((options: Record<string, unknown>) => ({
 }));
 
 vi.mock("@tanstack/ai-svelte", () => ({
-	createChat: (options: Record<string, unknown>) => createChatMock(options),
-	fetchServerSentEvents: (endpoint: string) => ({ adapter: "sse", endpoint })
+	createChat: (options: Record<string, unknown>) => createChatMock(options)
 }));
 
 describe("createAiChat", () => {
@@ -45,53 +44,44 @@ describe("createAiChat", () => {
 		);
 	});
 
-	it("forwards props from chat endpoint objects", async () => {
+	it("maps deprecated transport to chat", async () => {
 		const { createAiChat } = await import("./create-chat.svelte.js");
-		createAiChat({
-			chat: {
-				endpoint: "/api/chat",
-				props: { model: "demo" }
-			}
-		});
+		createAiChat({ transport: "/legacy/chat" });
 
 		expect(createChatMock).toHaveBeenCalledWith(
 			expect.objectContaining({
-				forwardedProps: { model: "demo" }
+				connection: expect.objectContaining({
+					connect: expect.any(Function)
+				})
 			})
 		);
 	});
 
-	it("uses server persistence when chat mode is server", async () => {
+	it("prefers chat over deprecated transport", async () => {
 		const { createAiChat } = await import("./create-chat.svelte.js");
-		createAiChat({
-			chat: { mode: "server", endpoint: "/api/chat" }
-		});
+		createAiChat({ chat: "/api/chat", transport: "/legacy/chat" });
 
-		expect(createChatMock).toHaveBeenCalledWith(
-			expect.objectContaining({
-				persistence: true
-			})
-		);
-	});
-
-	it("prefers explicit persistence over chat defaults", async () => {
-		const persistence = {
-			getItem: vi.fn(),
-			setItem: vi.fn(),
-			removeItem: vi.fn()
+		const connection = createChatMock.mock.calls[0]?.[0]?.connection as {
+			connect: (
+				messages: unknown[],
+				data: unknown,
+				signal: AbortSignal,
+				runContext: { threadId: string; runId: string }
+			) => AsyncIterable<unknown>;
 		};
-		const { createAiChat } = await import("./create-chat.svelte.js");
 
-		createAiChat({
-			chat: { mode: "server", endpoint: "/api/chat" },
-			persistence
-		});
+		const fetchMock = vi.fn(async () => Response.json({ message: "ok" }));
+		vi.stubGlobal("fetch", fetchMock);
 
-		expect(createChatMock).toHaveBeenCalledWith(
-			expect.objectContaining({
-				persistence
-			})
-		);
+		for await (const _chunk of connection.connect([], undefined, new AbortController().signal, {
+			threadId: "thread-1",
+			runId: "run-1"
+		})) {
+			break;
+		}
+
+		expect(fetchMock).toHaveBeenCalledWith("/api/chat", expect.any(Object));
+		vi.unstubAllGlobals();
 	});
 
 	it("forwards threadId and tools", async () => {
@@ -107,34 +97,6 @@ describe("createAiChat", () => {
 			expect.objectContaining({
 				threadId: "thread-123",
 				tools
-			})
-		);
-	});
-
-	it("uses TanStack SSE for tanstack-sse mode", async () => {
-		const { createAiChat } = await import("./create-chat.svelte.js");
-		createAiChat({
-			chat: { mode: "tanstack-sse", endpoint: "/api/ag-ui" }
-		});
-
-		expect(createChatMock).toHaveBeenCalledWith(
-			expect.objectContaining({
-				connection: { adapter: "sse", endpoint: "/api/ag-ui" }
-			})
-		);
-	});
-
-	it("wraps chat handlers", async () => {
-		const { createAiChat } = await import("./create-chat.svelte.js");
-		createAiChat({
-			chat: async () => "Hello"
-		});
-
-		expect(createChatMock).toHaveBeenCalledWith(
-			expect.objectContaining({
-				connection: expect.objectContaining({
-					connect: expect.any(Function)
-				})
 			})
 		);
 	});

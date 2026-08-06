@@ -13,7 +13,7 @@ Open the app and click the sparkles icon to try chat.
 
 ## AI Chat
 
-Two things to wire up: **storage** (threads + message history) and **chat** (your agent endpoint). Pass both to `createAiChatSession`, then hand the session to `AppShell`.
+Two things to wire up: **storage** (threads + message history) and **chat** (your agent endpoint URL). Pass both to `createAiChatSession`, then hand the session to `AppShell`.
 
 ```ts
 import { createAiChatSession, createLocalChatStorage } from "vpaa-ui";
@@ -31,6 +31,8 @@ const chat = createAiChatSession({
 ```
 
 Defaults work out of the box — `localStorage` for storage, `/api/chat` for chat.
+
+`transport` still works but is deprecated — use `chat` instead.
 
 ---
 
@@ -53,7 +55,7 @@ Your endpoint returns:
 { "message": "Headcount is up 3% this quarter." }
 ```
 
-Plain text (`text/plain`) also works, including a streamed body for token-by-token replies. No special event format — just a message string.
+Plain text (`text/plain`) also works, including a streamed body for token-by-token replies.
 
 Example (SvelteKit):
 
@@ -66,15 +68,6 @@ export const POST = async ({ request }) => {
 ```
 
 See `src/routes/api/chat/+server.ts` in this repo for a working mock.
-
-### Chat options
-
-| Config | Use when |
-|---|---|
-| `chat: "/api/chat"` | Default — your endpoint returns `{ message }` |
-| `chat: async ({ threadId, messages }) => "..."` | Custom fetch logic or in-process handler |
-| `chat: { endpoint: "/api/chat", props: { ... } }` | Extra fields merged into the POST body |
-| `chat: { mode: "server", endpoint: "/api/chat" }` | Your backend also owns message persistence |
 
 ---
 

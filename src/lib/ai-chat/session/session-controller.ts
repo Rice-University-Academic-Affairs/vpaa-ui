@@ -4,11 +4,23 @@ import { createAiChat, type AiChatClient } from "../client/create-chat.svelte.js
 import { DEFAULT_CHAT_ENDPOINT } from "../constants.js";
 import { buildThreadMetadataSync } from "../core/session-sync.js";
 import { createLocalChatStorage, toMessagePersistence, type ChatStorage } from "../core/storage.js";
-import { resolveAiChat, type ChatConfig } from "../core/chat.js";
+import {
+	normalizeDeprecatedTransport,
+	type ChatEndpoint,
+	type DeprecatedChatTransport
+} from "../core/chat.js";
 import type { AiChatThread, CreateChatThreadInput } from "../core/types.js";
 
 async function awaitValue<T>(value: T | Promise<T>): Promise<T> {
 	return await value;
+}
+
+function resolveChatEndpoint(
+	options: Pick<ChatSessionControllerOptions, "chat" | "transport">
+): ChatEndpoint {
+	if (options.chat !== undefined) return options.chat;
+	if (options.transport !== undefined) return normalizeDeprecatedTransport(options.transport);
+	return DEFAULT_CHAT_ENDPOINT;
 }
 
 export type CreateChatFactory = (
@@ -18,7 +30,9 @@ export type CreateChatFactory = (
 
 export type ChatSessionControllerOptions = {
 	storage?: ChatStorage;
-	chat?: ChatConfig;
+	chat?: ChatEndpoint;
+	/** @deprecated Use `chat` instead. */
+	transport?: DeprecatedChatTransport;
 	tools?: readonly AnyClientTool[];
 	threadId?: string | null;
 	createChat?: CreateChatFactory;
@@ -30,8 +44,8 @@ export class ChatSessionController {
 	selectedThreadId: string | null;
 	chat: AiChatClient;
 
-	readonly chatConfig: ChatConfig;
-	readonly messagePersistence: ReturnType<typeof toMessagePersistence> | true;
+	readonly chatEndpoint: ChatEndpoint;
+	readonly messagePersistence: ReturnType<typeof toMessagePersistence>;
 
 	private readonly storage: ChatStorage;
 	private readonly tools?: readonly AnyClientTool[];
@@ -40,19 +54,16 @@ export class ChatSessionController {
 
 	constructor(options: ChatSessionControllerOptions = {}) {
 		this.storage = options.storage ?? createLocalChatStorage();
-		this.chatConfig = options.chat ?? DEFAULT_CHAT_ENDPOINT;
+		this.chatEndpoint = resolveChatEndpoint(options);
 		this.tools = options.tools;
 		this.selectedThreadId = options.threadId ?? null;
-
-		const resolvedChat = resolveAiChat(this.chatConfig);
-		this.messagePersistence =
-			resolvedChat.persistence === true ? true : toMessagePersistence(this.storage);
+		this.messagePersistence = toMessagePersistence(this.storage);
 		this.onStateChange = options.onStateChange;
 		this.createChat =
 			options.createChat ??
 			((threadId, onFinish) => {
 				const client = createAiChat({
-					chat: this.chatConfig,
+					chat: this.chatEndpoint,
 					threadId: threadId ?? undefined,
 					persistence: this.messagePersistence,
 					tools: this.tools,

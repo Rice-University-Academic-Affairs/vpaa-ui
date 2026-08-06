@@ -1,59 +1,27 @@
-import { EventType } from "@tanstack/ai";
 import type { ConnectConnectionAdapter } from "@tanstack/ai-client";
 import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_CHAT_ENDPOINT } from "../constants.js";
-import { resolveAiChat } from "./chat.js";
-
-function expectConnectable(connection: ConnectConnectionAdapter) {
-	expect(connection.connect).toBeTypeOf("function");
-}
-
-vi.mock("@tanstack/ai-svelte", () => ({
-	fetchServerSentEvents: (endpoint: string) => ({ adapter: "sse", endpoint })
-}));
+import { createChatConnection, normalizeDeprecatedTransport, resolveAiChat } from "./chat.js";
 
 describe("resolveAiChat", () => {
-	it("uses a simple JSON chat connection for string endpoints", () => {
+	it("creates a JSON chat connection for endpoint strings", () => {
 		const resolved = resolveAiChat("/api/chat");
-		expectConnectable(resolved.connection);
-		expect(resolved.persistence).toBeUndefined();
+		expect((resolved.connection as ConnectConnectionAdapter).connect).toBeTypeOf("function");
 	});
+});
 
-	it("uses a simple JSON chat connection for endpoint objects", () => {
-		const resolved = resolveAiChat({
-			endpoint: "/api/chat",
-			props: { departmentId: "engineering" }
-		});
+describe("createChatConnection", () => {
+	it("posts threadId and messages to the endpoint", async () => {
+		const fetchMock = vi.fn(async () =>
+			Response.json({ message: "Hello there" })
+		);
+		vi.stubGlobal("fetch", fetchMock);
 
-		expectConnectable(resolved.connection);
-		expect(resolved.forwardedProps).toEqual({ departmentId: "engineering" });
-	});
-
-	it("uses server persistence for server mode", () => {
-		const resolved = resolveAiChat({
-			mode: "server",
-			endpoint: DEFAULT_CHAT_ENDPOINT
-		});
-
-		expect(resolved.persistence).toBe(true);
-		expectConnectable(resolved.connection);
-	});
-
-	it("uses TanStack SSE for tanstack-sse mode", () => {
-		const resolved = resolveAiChat({
-			mode: "tanstack-sse",
-			endpoint: "/api/ag-ui"
-		});
-
-		expect(resolved.connection).toEqual({ adapter: "sse", endpoint: "/api/ag-ui" });
-	});
-
-	it("wraps chat handlers as connections", async () => {
-		const resolved = resolveAiChat(async () => "Done");
+		const connection = createChatConnection("/api/chat");
 		const chunks = [];
 
-		for await (const chunk of resolved.connection.connect!(
-			[],
+		for await (const chunk of connection.connect!(
+			[{ id: "m1", role: "user", parts: [{ type: "text", content: "Hi" }] }],
 			undefined,
 			new AbortController().signal,
 			{ threadId: "thread-1", runId: "run-1" }
@@ -61,11 +29,33 @@ describe("resolveAiChat", () => {
 			chunks.push(chunk);
 		}
 
+		expect(fetchMock).toHaveBeenCalledWith(
+			"/api/chat",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({
+					threadId: "thread-1",
+					messages: [{ id: "m1", role: "user", parts: [{ type: "text", content: "Hi" }] }]
+				})
+			})
+		);
+
+		vi.unstubAllGlobals();
+	});
+});
+
+describe("normalizeDeprecatedTransport", () => {
+	it("accepts legacy string transports", () => {
+		expect(normalizeDeprecatedTransport("/api/chat")).toBe("/api/chat");
+	});
+
+	it("accepts legacy endpoint objects", () => {
+		expect(normalizeDeprecatedTransport({ endpoint: "/api/chat" })).toBe("/api/chat");
+	});
+
+	it("accepts legacy server mode objects", () => {
 		expect(
-			chunks
-				.filter((chunk) => chunk.type === EventType.TEXT_MESSAGE_CONTENT)
-				.map((chunk) => ("delta" in chunk ? chunk.delta : ""))
-				.join("")
-		).toBe("Done");
+			normalizeDeprecatedTransport({ mode: "server", endpoint: DEFAULT_CHAT_ENDPOINT })
+		).toBe(DEFAULT_CHAT_ENDPOINT);
 	});
 });
