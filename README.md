@@ -1,65 +1,142 @@
-# Svelte library
+# VPAA UI
 
-Everything you need to build a Svelte library, powered by [`sv`](https://npmjs.com/package/sv).
+Svelte 5 component library for VPAA admin apps. Includes layout, tables, metrics, and a built-in AI chat assistant.
 
-Read more about creating a library [in the docs](https://svelte.dev/docs/kit/packaging).
-
-## Creating a project
-
-If you're seeing this, you've probably already done this step. Congrats!
+Run the showcase:
 
 ```sh
-# create a new project in the current directory
-npx sv create
-
-# create a new project in my-app
-npx sv create my-app
-```
-
-To recreate this project with the same configuration:
-
-```sh
-# recreate this project
-npx sv@0.16.1 create --template library --types ts --install npm .
-```
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
+npm install
 npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
 ```
 
-Everything inside `src/lib` is part of your library, everything inside `src/routes` can be used as a showcase or preview app.
+Open the app and click the sparkles icon to try chat.
 
-## Building
+---
 
-To build your library:
+## AI Chat
 
-```sh
-npm pack
+One entry point: `createAiChatSession`. It manages threads, persistence, and the active conversation. Pass the session to `AppShell` and you're done.
+
+### 1. Create a session
+
+```ts
+import { createAiChatSession, createLocalChatStorage } from "vpaa-ui";
+
+const chat = createAiChatSession({
+  storage: createLocalChatStorage(),
+  transport: "/api/chat"
+});
 ```
 
-To create a production version of your showcase app:
+Defaults work out of the box — storage falls back to `localStorage`, transport falls back to `/api/chat`.
 
-```sh
-npm run build
+### 2. Pass it to AppShell
+
+```svelte
+<script lang="ts">
+  import { AppShell } from "vpaa-ui";
+
+  const chat = createAiChatSession();
+</script>
+
+<AppShell appName="My App" {navigation} {chat}>
+  {@render children()}
+</AppShell>
 ```
 
-You can preview the production build with `npm run preview`.
+`AppShell` renders the chat drawer, thread list, and input. It calls `chat.dispose()` on teardown.
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+### 3. Add a chat API route
 
-## Publishing
+The client POSTs to your transport URL (default `/api/chat`) and expects a server-sent events stream. See `src/routes/api/chat/+server.ts` in this repo for a working mock handler you can copy.
 
-Go into the `package.json` and give your package the desired name through the `"name"` option. Also consider adding a `"license"` field and point it to a `LICENSE` file which you can create from a template (one popular option is the [MIT license](https://opensource.org/license/mit/)).
+To let the server own message persistence instead:
 
-To publish your library to [npm](https://www.npmjs.com):
-
-```sh
-npm publish
+```ts
+createAiChatSession({
+  transport: { mode: "server", endpoint: "/api/chat" }
+});
 ```
+
+---
+
+## Session API
+
+| Member | Description |
+|---|---|
+| `threads` | Thread list for the sidebar |
+| `selectedThread` | Active thread metadata |
+| `chat` | Active conversation (messages, loading, errors) |
+| `selectThread(id)` | Switch threads |
+| `createThread()` | Start a new thread |
+| `deleteThread(id)` | Remove a thread |
+| `dispose()` | Clean up (call on unmount if not using `AppShell`) |
+
+---
+
+## Client tools
+
+Let the assistant trigger browser actions. Define a tool, wrap it with `.client()`, and pass it to the session:
+
+```ts
+import { clientTools, createAiChatSession, toolDefinition } from "vpaa-ui";
+
+const scrollToTop = toolDefinition({
+  name: "scroll_to_top",
+  description: "Scroll the page to the top",
+  inputSchema: { type: "object", properties: {} },
+  outputSchema: {
+    type: "object",
+    properties: { scrolled: { type: "boolean" } },
+    required: ["scrolled"]
+  }
+}).client(() => {
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  return { scrolled: true };
+});
+
+const chat = createAiChatSession({
+  tools: clientTools(scrollToTop)
+});
+```
+
+---
+
+## Custom storage
+
+Implement `ChatStorage` if you need server-backed threads or messages. The interface covers thread metadata (`listThreads`, `createThread`, …) and per-thread message state (`getThreadState`, `setThreadState`, …).
+
+For tests, use `createMemoryChatStorage()` instead of `createLocalChatStorage()`.
+
+---
+
+## Without AppShell
+
+Use the `AiChat` component if you only need the trigger + panel:
+
+```svelte
+<script lang="ts">
+  import { AiChat, createAiChatSession } from "vpaa-ui";
+
+  const session = createAiChatSession();
+</script>
+
+<AiChat {session} />
+```
+
+---
+
+## Other components
+
+`DataTable`, `DrilldownTable`, `MetricCard`, `PageContainer`, and more are exported from `vpaa-ui`. Browse the showcase page (`src/routes/+page.svelte`) for examples.
+
+---
+
+## Scripts
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Start the showcase app |
+| `npm run build` | Build the library |
+| `npm run check` | Type-check |
+| `npm test` | Run tests |
