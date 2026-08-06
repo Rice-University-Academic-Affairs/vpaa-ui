@@ -3,6 +3,7 @@ import { createScrollToTopClientTool } from "$lib/ai-chat/tools/examples/scroll-
 import { clientTools } from "$lib/ai-chat/tools/index.js";
 import { DEFAULT_CHAT_ENDPOINT } from "$lib/ai-chat/constants.js";
 import { createAiChatSession, createLocalChatStorage } from "$lib/index.js";
+import { canUseLocalChatStorage } from "$lib/ai-chat/core/storage.js";
 
 export const DEMO_CHAT_THREADS: AiChatThread[] = [
 	{
@@ -32,4 +33,12 @@ export function createShowcaseChatSession() {
 		threadId: DEMO_CHAT_THREADS[0]?.id,
 		clientTools: clientTools(createScrollToTopClientTool())
 	});
+}
+
+export function createShowcaseChatSessionIfAvailable() {
+	if (!canUseLocalChatStorage()) {
+		return null;
+	}
+
+	return createShowcaseChatSession();
 }

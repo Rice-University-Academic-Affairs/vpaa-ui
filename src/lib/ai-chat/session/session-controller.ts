@@ -108,6 +108,10 @@ export class ChatSessionController {
 	}
 
 	async createThread(input: CreateChatThreadInput = {}) {
+		if (input.id) {
+			this.deletedThreadIds.delete(input.id);
+		}
+
 		const thread = await awaitValue(this.storage.createThread(input));
 		await this.refreshThreads();
 		await this.selectThread(thread.id);
@@ -133,7 +137,16 @@ export class ChatSessionController {
 	async bootstrap() {
 		await this.refreshThreads();
 
-		if (this.selectedThreadId) return;
+		if (this.selectedThreadId) {
+			const selectedExists = this.threads.some((thread) => thread.id === this.selectedThreadId);
+			if (selectedExists) return;
+
+			this.chat.stop();
+			this.chat.dispose();
+			this.selectedThreadId = null;
+			this.chat = this.createChatForThread(null);
+			this.onStateChange?.();
+		}
 
 		if (this.threads.length > 0) {
 			await this.selectThread(this.threads[0]!.id);

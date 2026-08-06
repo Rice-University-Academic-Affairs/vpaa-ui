@@ -11,20 +11,34 @@ npm install
 npm run dev
 ```
 
-Open the app and click the sparkles icon to try chat. See `src/routes/+page.svelte` for table and metric examples.
+Open the app and click the sparkles icon to try chat. No API key is required — the showcase uses `createMockChatStream`. See `src/routes/+page.svelte` for table and metric examples, and `src/routes/+layout.svelte` with `src/routes/showcase/chat.ts` for chat wiring.
 
 ## Use in your SvelteKit app
 
 ```sh
-npm install vpaa-ui
+npm install vpaa-ui @tailwindcss/vite
 ```
 
 Peer dependencies: `svelte ^5`, `tailwindcss ^4`, `@lucide/svelte ^1`.
 
-Import the theme in your root layout CSS:
+Add Tailwind and the theme in your root layout CSS:
 
 ```css
+@import "tailwindcss";
 @import "vpaa-ui/theme.css";
+
+@source "../node_modules/vpaa-ui/dist";
+```
+
+Enable the Tailwind Vite plugin in `vite.config.ts`:
+
+```ts
+import tailwindcss from "@tailwindcss/vite";
+import { sveltekit } from "@sveltejs/kit/vite";
+
+export default defineConfig({
+  plugins: [tailwindcss(), sveltekit()]
+});
 ```
 
 ---
@@ -192,7 +206,7 @@ export const adapter = openaiText("gpt-4o", {
 
 ```ts
 // src/routes/api/chat/tools.ts
-import { toolDefinition } from "@tanstack/ai";
+import { toolDefinition } from "vpaa-ui";
 
 const getHeadcount = toolDefinition({
   name: "get_headcount",
@@ -262,15 +276,17 @@ The showcase uses `createMockChatStream` — see `src/routes/api/chat/+server.ts
 | `selectedThreadId` | Active thread id |
 | `selectedThread` | Active thread metadata |
 | `chat` | Active conversation client |
-| `selectThread(id)` | Switch threads |
-| `createThread()` | Start a new thread |
-| `deleteThread(id)` | Remove a thread |
-| `refreshThreads()` | Reload thread metadata from storage |
+| `selectThread(id)` | Switch threads (async) |
+| `createThread()` | Start a new thread (async, returns the thread) |
+| `deleteThread(id)` | Remove a thread (async) |
+| `refreshThreads()` | Reload thread metadata from storage (async) |
 | `dispose()` | Clean up (call on unmount if not using `AppShell`) |
 
 `session.chat` is available immediately when the session is created. Thread metadata finishes loading during bootstrap.
 
-Optional `threadId` pre-selects a thread that already exists in storage.
+Optional `threadId` pre-selects a thread that already exists in storage. If the id is missing, bootstrap selects the first available thread or creates one.
+
+`AppShell` accepts the session as `chat={session}`. `AiChat` accepts the same object as `{session}`.
 
 ---
 

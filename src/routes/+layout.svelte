@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { page } from "$app/state";
 	import { AppShell } from "$lib/index.js";
-	import { createShowcaseChatSession } from "./showcase/chat.js";
+	import type { AiChatSession } from "$lib/ai-chat/session/create-session.svelte.js";
+	import { createShowcaseChatSessionIfAvailable } from "./showcase/chat.js";
 	import type { AppNavGroup } from "$lib/types/navigation.js";
 	import type { FacultyRow } from "$lib/types/drilldown.js";
 	import { faculty } from "./showcase.js";
@@ -16,7 +17,13 @@
 		}
 	];
 
-	const chatSession = createShowcaseChatSession();
+	let chatSession = $state<AiChatSession | undefined>(undefined);
+
+	$effect(() => {
+		if (!chatSession) {
+			chatSession = createShowcaseChatSessionIfAvailable() ?? undefined;
+		}
+	});
 
 	function handleSearchSelect(item: unknown) {
 		console.log("Selected:", (item as FacultyRow).name);

@@ -55,7 +55,7 @@
 	{#if chat}
 		<AiChatPanel bind:open={chatOpen} session={chat} />
 	{/if}
-	<main class="overflow-y-auto" style="grid-area: content;">
+	<main class="overflow-y-auto" data-app-shell-content style="grid-area: content;">
 		{@render children()}
 	</main>
 </div>

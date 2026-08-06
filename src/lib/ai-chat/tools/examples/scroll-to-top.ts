@@ -1,4 +1,5 @@
 import { toolDefinition } from "@tanstack/ai";
+import { scrollAppShellContent } from "$lib/components/app-shell/scroll-app-shell.js";
 
 export const scrollToTopDef = toolDefinition({
 	name: "scroll_to_top",
@@ -18,10 +19,8 @@ export const scrollToTopDef = toolDefinition({
 	}
 });
 
-export function createScrollToTopClientTool(scroll: (top: number) => void = (top) => {
-	if (typeof window !== "undefined") {
-		window.scrollTo({ top, behavior: "smooth" });
-	}
+export function createScrollToTopClientTool(scroll: (top: number) => void = () => {
+	scrollAppShellContent(0);
 }) {
 	return scrollToTopDef.client(() => {
 		scroll(0);

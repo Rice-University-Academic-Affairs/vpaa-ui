@@ -38,6 +38,10 @@ function sortThreads(threads: Iterable<AiChatThread>): AiChatThread[] {
 	return [...threads].sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
 }
 
+export function canUseLocalChatStorage(): boolean {
+	return typeof localStorage !== "undefined";
+}
+
 function readThreadCatalog(key: string): AiChatThread[] {
 	if (typeof localStorage === "undefined") return [];
 
