@@ -1,12 +1,12 @@
-<script lang="ts" generics="TData extends import('@tanstack/table-core').RowData">
-	import type { RowData, Table } from "@tanstack/table-core";
+<script lang="ts" generics="TData extends Record<string, unknown>">
 	import ArrowUpDownIcon from "@lucide/svelte/icons/arrow-up-down";
 	import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
 	import SecondaryButton from "$lib/components/buttons/SecondaryButton.svelte";
+	import type { DataTableInstance } from "$lib/components/data-table/table-types.js";
 	import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
 
 	type Props = {
-		table: Table<TData>;
+		table: DataTableInstance<TData>;
 	};
 
 	let { table }: Props = $props();
@@ -15,8 +15,9 @@
 		table.getAllColumns().filter((column) => column.getCanSort() && column.id !== "select")
 	);
 
-	const sortColumn = $derived(table.getState().sorting[0]?.id ?? sortableColumns[0]?.id ?? "");
-	const sortDesc = $derived(table.getState().sorting[0]?.desc ?? false);
+	const sorting = $derived(table.atoms.sorting.get());
+	const sortColumn = $derived(sorting[0]?.id ?? sortableColumns[0]?.id ?? "");
+	const sortDesc = $derived(sorting[0]?.desc ?? false);
 
 	function columnLabel(column: (typeof sortableColumns)[number]) {
 		const header = column.columnDef.header;

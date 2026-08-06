@@ -1,13 +1,6 @@
 <script lang="ts" generics="TFaculty extends FacultyRow, TSchool extends SchoolRow = SchoolRow, TDepartment extends DepartmentRow = DepartmentRow">
-	import {
-		type PaginationState,
-		type SortingState,
-		type Updater,
-		getCoreRowModel,
-		getPaginationRowModel,
-		getSortedRowModel
-	} from "@tanstack/table-core";
-	import { createSvelteTable } from "$lib/components/ui/data-table/index.js";
+	import { createTable, type PaginationState, type SortingState, type Updater } from "@tanstack/svelte-table";
+	import { dataTableFeatures } from "$lib/components/data-table/table-features.js";
 	import { buildColumnDefs } from "$lib/components/data-table/build-column-defs.js";
 	import DataTableActiveFilters from "$lib/components/data-table/DataTableActiveFilters.svelte";
 	import DataTableCard from "$lib/components/data-table/DataTableCard.svelte";
@@ -209,7 +202,8 @@
 		pagination = { pageIndex: 0, pageSize };
 	});
 
-	const table = createSvelteTable({
+	const table = createTable({
+		features: dataTableFeatures,
 		get data() {
 			return tableState.filteredData;
 		},
@@ -237,10 +231,7 @@
 				return;
 			}
 			sorting = next;
-		},
-		getCoreRowModel: getCoreRowModel(),
-		getPaginationRowModel: getPaginationRowModel(),
-		getSortedRowModel: getSortedRowModel()
+		}
 	});
 
 	function resetPageIndex() {
