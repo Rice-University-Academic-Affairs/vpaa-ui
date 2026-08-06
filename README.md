@@ -2,8 +2,6 @@
 
 Svelte 5 component library for VPAA admin apps. Includes layout, tables, metrics, and a built-in AI chat assistant.
 
-Run the showcase:
-
 ```sh
 npm install
 npm run dev
@@ -15,48 +13,100 @@ Open the app and click the sparkles icon to try chat.
 
 ## AI Chat
 
-One entry point: `createAiChatSession`. It manages threads, persistence, and the active conversation. Pass the session to `AppShell` and you're done.
-
-### 1. Create a session
+Two things to wire up: **storage** (threads + message history) and **chat** (your agent endpoint). Pass both to `createAiChatSession`, then hand the session to `AppShell`.
 
 ```ts
 import { createAiChatSession, createLocalChatStorage } from "vpaa-ui";
 
 const chat = createAiChatSession({
   storage: createLocalChatStorage(),
-  transport: "/api/chat"
+  chat: "/api/chat"
 });
 ```
 
-Defaults work out of the box — storage falls back to `localStorage`, transport falls back to `/api/chat`.
-
-### 2. Pass it to AppShell
-
 ```svelte
-<script lang="ts">
-  import { AppShell } from "vpaa-ui";
-
-  const chat = createAiChatSession();
-</script>
-
 <AppShell appName="My App" {navigation} {chat}>
   {@render children()}
 </AppShell>
 ```
 
-`AppShell` renders the chat drawer, thread list, and input. It calls `chat.dispose()` on teardown.
+Defaults work out of the box — `localStorage` for storage, `/api/chat` for chat.
 
-### 3. Add a chat API route
+---
 
-The client POSTs to your transport URL (default `/api/chat`) and expects a server-sent events stream. See `src/routes/api/chat/+server.ts` in this repo for a working mock handler you can copy.
+## Your chat endpoint
 
-To let the server own message persistence instead:
+`POST` to your chat URL. The client sends:
+
+```json
+{
+  "threadId": "abc-123",
+  "messages": [
+    { "role": "user", "content": "Show me faculty headcount" }
+  ]
+}
+```
+
+Your endpoint returns:
+
+```json
+{ "message": "Headcount is up 3% this quarter." }
+```
+
+Plain text (`text/plain`) also works, including a streamed body for token-by-token replies. No special event format — just a message string.
+
+Example (SvelteKit):
 
 ```ts
-createAiChatSession({
-  transport: { mode: "server", endpoint: "/api/chat" }
-});
+export const POST = async ({ request }) => {
+  const { threadId, messages } = await request.json();
+  const message = await myAgent.ask({ threadId, messages });
+  return Response.json({ message });
+};
 ```
+
+See `src/routes/api/chat/+server.ts` in this repo for a working mock.
+
+### Chat options
+
+| Config | Use when |
+|---|---|
+| `chat: "/api/chat"` | Default — your endpoint returns `{ message }` |
+| `chat: async ({ threadId, messages }) => "..."` | Custom fetch logic or in-process handler |
+| `chat: { endpoint: "/api/chat", props: { ... } }` | Extra fields merged into the POST body |
+| `chat: { mode: "server", endpoint: "/api/chat" }` | Your backend also owns message persistence |
+
+---
+
+## Your storage backend
+
+Implement `ChatStorage` to use your own database instead of `localStorage`:
+
+| Method | Purpose |
+|---|---|
+| `listThreads` | Sidebar thread list |
+| `getThread` | One thread's metadata |
+| `createThread` | New thread |
+| `updateThread` | Title, preview, etc. |
+| `deleteThread` | Remove a thread |
+| `getMessages` | Message history for a thread |
+| `saveMessages` | Save message history |
+| `deleteMessages` | Clear message history |
+
+```ts
+const storage: ChatStorage = {
+  listThreads: () => api.get("/threads"),
+  getThread: (id) => api.get(`/threads/${id}`),
+  createThread: (input) => api.post("/threads", input),
+  updateThread: (id, patch) => api.patch(`/threads/${id}`, patch),
+  deleteThread: (id) => api.delete(`/threads/${id}`),
+  getMessages: (id) => api.get(`/threads/${id}/messages`),
+  saveMessages: (id, messages) => api.put(`/threads/${id}/messages`, { messages }),
+  deleteMessages: (id) => api.delete(`/threads/${id}/messages`)
+};
+```
+
+For tests, use `createMemoryChatStorage()`.
 
 ---
 
@@ -75,8 +125,6 @@ createAiChatSession({
 ---
 
 ## Client tools
-
-Let the assistant trigger browser actions. Define a tool, wrap it with `.client()`, and pass it to the session:
 
 ```ts
 import { clientTools, createAiChatSession, toolDefinition } from "vpaa-ui";
@@ -102,33 +150,16 @@ const chat = createAiChatSession({
 
 ---
 
-## Custom storage
-
-Implement `ChatStorage` if you need server-backed threads or messages. The interface covers thread metadata (`listThreads`, `createThread`, …) and per-thread message state (`getThreadState`, `setThreadState`, …).
-
-For tests, use `createMemoryChatStorage()` instead of `createLocalChatStorage()`.
-
----
-
 ## Without AppShell
 
-Use the `AiChat` component if you only need the trigger + panel:
-
 ```svelte
-<script lang="ts">
+<script>
   import { AiChat, createAiChatSession } from "vpaa-ui";
-
   const session = createAiChatSession();
 </script>
 
 <AiChat {session} />
 ```
-
----
-
-## Other components
-
-`DataTable`, `DrilldownTable`, `MetricCard`, `PageContainer`, and more are exported from `vpaa-ui`. Browse the showcase page (`src/routes/+page.svelte`) for examples.
 
 ---
 

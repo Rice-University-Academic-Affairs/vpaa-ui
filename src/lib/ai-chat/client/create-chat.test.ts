@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AnyClientTool } from "@tanstack/ai";
-import { DEFAULT_CHAT_TRANSPORT } from "../constants.js";
+import { DEFAULT_CHAT_ENDPOINT } from "../constants.js";
 
 const createChatMock = vi.fn((options: Record<string, unknown>) => ({
 	_opts: options,
@@ -19,34 +19,38 @@ describe("createAiChat", () => {
 		createChatMock.mockClear();
 	});
 
-	it("defaults transport to the shared chat endpoint", async () => {
+	it("defaults chat to the shared endpoint", async () => {
 		const { createAiChat } = await import("./create-chat.svelte.js");
 		createAiChat();
 
 		expect(createChatMock).toHaveBeenCalledWith(
 			expect.objectContaining({
-				connection: { adapter: "sse", endpoint: DEFAULT_CHAT_TRANSPORT }
+				connection: expect.objectContaining({
+					connect: expect.any(Function)
+				})
 			})
 		);
 	});
 
-	it("forwards explicit transport endpoints", async () => {
+	it("forwards explicit chat endpoints", async () => {
 		const { createAiChat } = await import("./create-chat.svelte.js");
-		createAiChat({ transport: "/custom/chat" });
+		createAiChat({ chat: "/custom/chat" });
 
 		expect(createChatMock).toHaveBeenCalledWith(
 			expect.objectContaining({
-				connection: { adapter: "sse", endpoint: "/custom/chat" }
+				connection: expect.objectContaining({
+					connect: expect.any(Function)
+				})
 			})
 		);
 	});
 
-	it("forwards forwardedProps from transport objects", async () => {
+	it("forwards props from chat endpoint objects", async () => {
 		const { createAiChat } = await import("./create-chat.svelte.js");
 		createAiChat({
-			transport: {
+			chat: {
 				endpoint: "/api/chat",
-				forwardedProps: { model: "demo" }
+				props: { model: "demo" }
 			}
 		});
 
@@ -57,10 +61,10 @@ describe("createAiChat", () => {
 		);
 	});
 
-	it("uses server persistence when transport mode is server", async () => {
+	it("uses server persistence when chat mode is server", async () => {
 		const { createAiChat } = await import("./create-chat.svelte.js");
 		createAiChat({
-			transport: { mode: "server", endpoint: "/api/chat" }
+			chat: { mode: "server", endpoint: "/api/chat" }
 		});
 
 		expect(createChatMock).toHaveBeenCalledWith(
@@ -70,7 +74,7 @@ describe("createAiChat", () => {
 		);
 	});
 
-	it("prefers explicit persistence over transport defaults", async () => {
+	it("prefers explicit persistence over chat defaults", async () => {
 		const persistence = {
 			getItem: vi.fn(),
 			setItem: vi.fn(),
@@ -79,7 +83,7 @@ describe("createAiChat", () => {
 		const { createAiChat } = await import("./create-chat.svelte.js");
 
 		createAiChat({
-			transport: { mode: "server", endpoint: "/api/chat" },
+			chat: { mode: "server", endpoint: "/api/chat" },
 			persistence
 		});
 
@@ -103,6 +107,34 @@ describe("createAiChat", () => {
 			expect.objectContaining({
 				threadId: "thread-123",
 				tools
+			})
+		);
+	});
+
+	it("uses TanStack SSE for tanstack-sse mode", async () => {
+		const { createAiChat } = await import("./create-chat.svelte.js");
+		createAiChat({
+			chat: { mode: "tanstack-sse", endpoint: "/api/ag-ui" }
+		});
+
+		expect(createChatMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				connection: { adapter: "sse", endpoint: "/api/ag-ui" }
+			})
+		);
+	});
+
+	it("wraps chat handlers", async () => {
+		const { createAiChat } = await import("./create-chat.svelte.js");
+		createAiChat({
+			chat: async () => "Hello"
+		});
+
+		expect(createChatMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				connection: expect.objectContaining({
+					connect: expect.any(Function)
+				})
 			})
 		);
 	});

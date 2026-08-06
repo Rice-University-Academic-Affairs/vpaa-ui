@@ -1,14 +1,14 @@
 import type { AnyClientTool } from "@tanstack/ai";
-import { DEFAULT_CHAT_TRANSPORT } from "../constants.js";
+import { DEFAULT_CHAT_ENDPOINT } from "../constants.js";
 import { createLocalChatStorage, type ChatStorage } from "../core/storage.js";
-import type { AiChatTransport } from "../core/transport.js";
+import type { ChatConfig } from "../core/chat.js";
 import type { AiChatThread } from "../core/types.js";
 import type { AiChatClient } from "../client/create-chat.svelte.js";
 import { ChatSessionController } from "./session-controller.js";
 
 export type CreateAiChatSessionOptions = {
 	storage?: ChatStorage;
-	transport?: AiChatTransport;
+	chat?: ChatConfig;
 	tools?: readonly AnyClientTool[];
 	threadId?: string;
 };
@@ -20,7 +20,7 @@ export function createAiChatSession(options: CreateAiChatSessionOptions = {}) {
 
 	const controller = new ChatSessionController({
 		storage: options.storage,
-		transport: options.transport ?? DEFAULT_CHAT_TRANSPORT,
+		chat: options.chat ?? DEFAULT_CHAT_ENDPOINT,
 		tools: options.tools,
 		threadId: options.threadId ?? null,
 		onStateChange: () => {

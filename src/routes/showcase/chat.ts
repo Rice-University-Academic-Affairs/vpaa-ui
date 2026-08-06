@@ -1,6 +1,6 @@
 import type { AiChatThread } from "$lib/ai-chat/core/types.js";
 import { createAiChatSession, createLocalChatStorage } from "$lib/index.js";
-import { DEFAULT_CHAT_TRANSPORT } from "$lib/ai-chat/constants.js";
+import { DEFAULT_CHAT_ENDPOINT } from "$lib/ai-chat/constants.js";
 
 export const DEMO_CHAT_THREADS: AiChatThread[] = [
 	{
@@ -26,7 +26,7 @@ export const DEMO_CHAT_THREADS: AiChatThread[] = [
 export function createShowcaseChatSession() {
 	return createAiChatSession({
 		storage: createLocalChatStorage({ initialThreads: DEMO_CHAT_THREADS }),
-		transport: DEFAULT_CHAT_TRANSPORT,
+		chat: DEFAULT_CHAT_ENDPOINT,
 		threadId: DEMO_CHAT_THREADS[0]?.id
 	});
 }

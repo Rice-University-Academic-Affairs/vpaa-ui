@@ -1,10 +1,10 @@
 import type { AnyClientTool } from "@tanstack/ai";
 import type { UIMessage } from "@tanstack/ai-client";
 import { createAiChat, type AiChatClient } from "../client/create-chat.svelte.js";
-import { DEFAULT_CHAT_TRANSPORT } from "../constants.js";
+import { DEFAULT_CHAT_ENDPOINT } from "../constants.js";
 import { buildThreadMetadataSync } from "../core/session-sync.js";
 import { createLocalChatStorage, toMessagePersistence, type ChatStorage } from "../core/storage.js";
-import { resolveAiChatTransport, type AiChatTransport } from "../core/transport.js";
+import { resolveAiChat, type ChatConfig } from "../core/chat.js";
 import type { AiChatThread, CreateChatThreadInput } from "../core/types.js";
 
 async function awaitValue<T>(value: T | Promise<T>): Promise<T> {
@@ -18,7 +18,7 @@ export type CreateChatFactory = (
 
 export type ChatSessionControllerOptions = {
 	storage?: ChatStorage;
-	transport?: AiChatTransport;
+	chat?: ChatConfig;
 	tools?: readonly AnyClientTool[];
 	threadId?: string | null;
 	createChat?: CreateChatFactory;
@@ -30,7 +30,7 @@ export class ChatSessionController {
 	selectedThreadId: string | null;
 	chat: AiChatClient;
 
-	readonly transport: AiChatTransport;
+	readonly chatConfig: ChatConfig;
 	readonly messagePersistence: ReturnType<typeof toMessagePersistence> | true;
 
 	private readonly storage: ChatStorage;
@@ -40,19 +40,19 @@ export class ChatSessionController {
 
 	constructor(options: ChatSessionControllerOptions = {}) {
 		this.storage = options.storage ?? createLocalChatStorage();
-		this.transport = options.transport ?? DEFAULT_CHAT_TRANSPORT;
+		this.chatConfig = options.chat ?? DEFAULT_CHAT_ENDPOINT;
 		this.tools = options.tools;
 		this.selectedThreadId = options.threadId ?? null;
 
-		const resolvedTransport = resolveAiChatTransport(this.transport);
+		const resolvedChat = resolveAiChat(this.chatConfig);
 		this.messagePersistence =
-			resolvedTransport.persistence === true ? true : toMessagePersistence(this.storage);
+			resolvedChat.persistence === true ? true : toMessagePersistence(this.storage);
 		this.onStateChange = options.onStateChange;
 		this.createChat =
 			options.createChat ??
 			((threadId, onFinish) => {
 				const client = createAiChat({
-					transport: this.transport,
+					chat: this.chatConfig,
 					threadId: threadId ?? undefined,
 					persistence: this.messagePersistence,
 					tools: this.tools,

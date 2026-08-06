@@ -10,7 +10,7 @@ const createAiChatMock = vi.fn(
 	(options: {
 		threadId?: string;
 		onFinish?: () => void;
-		transport?: string;
+		chat?: unknown;
 		persistence?: unknown;
 	}) => {
 	const client = createMockChatClient({
@@ -25,7 +25,7 @@ vi.mock("../client/create-chat.svelte.js", () => ({
 	createAiChat: (options: {
 		threadId?: string;
 		onFinish?: () => void;
-		transport?: string;
+		chat?: unknown;
 		persistence?: unknown;
 	}) => createAiChatMock(options)
 }));
@@ -254,23 +254,23 @@ describe("createAiChatSession", () => {
 		expect(client?.dispose).toHaveBeenCalled();
 	});
 
-	it("defaults transport to /api/chat", async () => {
+	it("defaults chat to /api/chat", async () => {
 		const storage = createMemoryChatStorage([{ id: "thread-a", title: "Alpha", updatedAt: "2026-03-03" }]);
 		await mountSession({ storage, threadId: "thread-a" });
 
 		expect(createAiChatMock.mock.calls[0]?.[0]).toEqual(
 			expect.objectContaining({
-				transport: "/api/chat"
+				chat: "/api/chat"
 			})
 		);
 	});
 
-	it("uses server persistence when transport mode is server", async () => {
+	it("uses server persistence when chat mode is server", async () => {
 		const storage = createMemoryChatStorage([{ id: "thread-a", title: "Alpha", updatedAt: "2026-03-03" }]);
 		await mountSession({
 			storage,
 			threadId: "thread-a",
-			transport: { mode: "server", endpoint: "/api/chat" }
+			chat: { mode: "server", endpoint: "/api/chat" }
 		});
 
 		expect(createAiChatMock.mock.calls[0]?.[0]).toEqual(
@@ -282,7 +282,7 @@ describe("createAiChatSession", () => {
 
 	it("bridges memory storage to message persistence for client mode", async () => {
 		const storage = createMemoryChatStorage([{ id: "thread-a", title: "Alpha", updatedAt: "2026-03-03" }]);
-		await mountSession({ storage, threadId: "thread-a", transport: "/api/chat" });
+		await mountSession({ storage, threadId: "thread-a", chat: "/api/chat" });
 
 		expect(createAiChatMock.mock.calls[0]?.[0]?.persistence).toEqual({
 			getItem: expect.any(Function),

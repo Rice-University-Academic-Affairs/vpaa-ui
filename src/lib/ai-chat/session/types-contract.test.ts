@@ -9,7 +9,8 @@ describe("public type contracts", () => {
 	it("exposes session-first chat APIs only", () => {
 		expect(publicApi).toHaveProperty("createAiChatSession");
 		expect(publicApi).not.toHaveProperty("createAiChat");
-		expect(publicApi).not.toHaveProperty("resolveAiChatTransport");
+		expect(publicApi).not.toHaveProperty("resolveAiChat");
+		expect(publicApi).toHaveProperty("DEFAULT_CHAT_ENDPOINT");
 	});
 	it("uses AiChatThread throughout storage types", () => {
 		const thread: AiChatThread = {

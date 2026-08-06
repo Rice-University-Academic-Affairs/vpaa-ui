@@ -1,3 +1,4 @@
+import type { UIMessage } from "@tanstack/ai-client";
 import { localStoragePersistence } from "@tanstack/ai-client";
 import type { ChatClientPersistence, ChatPersistedState } from "@tanstack/ai-client";
 import type {
@@ -16,16 +17,20 @@ export interface ChatStorage {
 	createThread(input?: CreateChatThreadInput): MaybePromise<AiChatThread>;
 	updateThread(id: string, patch: UpdateChatThreadPatch): MaybePromise<void>;
 	deleteThread(id: string): MaybePromise<void>;
-	getThreadState(threadId: string): MaybePromise<ChatPersistedState | null>;
-	setThreadState(threadId: string, state: ChatPersistedState): MaybePromise<void>;
-	removeThreadState(threadId: string): MaybePromise<void>;
+	getMessages(threadId: string): MaybePromise<UIMessage[] | null>;
+	saveMessages(threadId: string, messages: UIMessage[]): MaybePromise<void>;
+	deleteMessages(threadId: string): MaybePromise<void>;
 }
 
 export function toMessagePersistence(storage: ChatStorage): ChatClientPersistence {
 	return {
-		getItem: (threadId) => storage.getThreadState(threadId),
-		setItem: (threadId, state) => storage.setThreadState(threadId, state),
-		removeItem: (threadId) => storage.removeThreadState(threadId)
+		getItem: async (threadId) => {
+			const messages = await storage.getMessages(threadId);
+			if (!messages) return null;
+			return { messages } satisfies ChatPersistedState;
+		},
+		setItem: (threadId, state) => storage.saveMessages(threadId, state.messages),
+		removeItem: (threadId) => storage.deleteMessages(threadId)
 	};
 }
 
@@ -88,15 +93,19 @@ export function createLocalChatStorage(options: LocalChatStorageOptions = {}): C
 			);
 			await messages.removeItem(id);
 		},
-		getThreadState: async (threadId) => (await messages.getItem(threadId)) ?? null,
-		setThreadState: (threadId, state) => messages.setItem(threadId, state),
-		removeThreadState: (threadId) => messages.removeItem(threadId)
+		getMessages: async (threadId) => {
+			const state = await messages.getItem(threadId);
+			if (!state) return null;
+			return Array.isArray(state) ? state : state.messages;
+		},
+		saveMessages: (threadId, messageList) => messages.setItem(threadId, { messages: messageList }),
+		deleteMessages: (threadId) => messages.removeItem(threadId)
 	};
 }
 
 export function createMemoryChatStorage(initialThreads: AiChatThread[] = []): ChatStorage {
 	const threads = new Map(initialThreads.map((thread) => [thread.id, { ...thread }]));
-	const states = new Map<string, ChatPersistedState>();
+	const messageHistory = new Map<string, UIMessage[]>();
 
 	return {
 		listThreads: () => sortThreads(threads.values()),
@@ -118,14 +127,14 @@ export function createMemoryChatStorage(initialThreads: AiChatThread[] = []): Ch
 		},
 		deleteThread: (id) => {
 			threads.delete(id);
-			states.delete(id);
+			messageHistory.delete(id);
 		},
-		getThreadState: (threadId) => states.get(threadId) ?? null,
-		setThreadState: (threadId, state) => {
-			states.set(threadId, structuredClone(state));
+		getMessages: (threadId) => messageHistory.get(threadId) ?? null,
+		saveMessages: (threadId, messages) => {
+			messageHistory.set(threadId, structuredClone(messages));
 		},
-		removeThreadState: (threadId) => {
-			states.delete(threadId);
+		deleteMessages: (threadId) => {
+			messageHistory.delete(threadId);
 		}
 	};
 }

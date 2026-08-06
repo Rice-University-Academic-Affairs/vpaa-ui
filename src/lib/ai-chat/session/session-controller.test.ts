@@ -14,7 +14,7 @@ describe("ChatSessionController", () => {
 	function createController(storage = createMemoryChatStorage(), threadId: string | null = null) {
 		return new ChatSessionController({
 			storage,
-			transport: "/api/chat",
+			chat: "/api/chat",
 			threadId,
 			createChat: (id, onFinish) => {
 				const client = createMockChatClient({

@@ -1,14 +1,11 @@
-import {
-	createChat,
-	type ChatPersistenceOption
-} from "@tanstack/ai-svelte";
+import { createChat, type ChatPersistenceOption } from "@tanstack/ai-svelte";
 import type { AnyClientTool } from "@tanstack/ai";
 import type { ChatClientOptions } from "@tanstack/ai-client";
-import { DEFAULT_CHAT_TRANSPORT } from "../constants.js";
-import { resolveAiChatTransport, type AiChatTransport } from "../core/transport.js";
+import { DEFAULT_CHAT_ENDPOINT } from "../constants.js";
+import { resolveAiChat, type ChatConfig } from "../core/chat.js";
 
 export type CreateAiChatOptions = {
-	transport?: AiChatTransport;
+	chat?: ChatConfig;
 	threadId?: string;
 	persistence?: ChatPersistenceOption;
 	tools?: readonly AnyClientTool[];
@@ -19,8 +16,7 @@ export type CreateAiChatOptions = {
 >;
 
 export function createAiChat(options: CreateAiChatOptions = {}) {
-	const transport = options.transport ?? DEFAULT_CHAT_TRANSPORT;
-	const resolved = resolveAiChatTransport(transport);
+	const resolved = resolveAiChat(options.chat ?? DEFAULT_CHAT_ENDPOINT);
 
 	return createChat({
 		...options,

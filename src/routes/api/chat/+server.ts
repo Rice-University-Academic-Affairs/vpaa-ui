@@ -1,12 +1,11 @@
-import { toServerSentEventsResponse } from "@tanstack/ai";
-import { createMockChatStream } from "./mock-stream.js";
+import { createMockChatReply } from "./mock-reply.js";
 import type { RequestHandler } from "./$types.js";
 
 export const POST: RequestHandler = async ({ request }) => {
 	const body = await request.json();
 
 	try {
-		return toServerSentEventsResponse(createMockChatStream(body));
+		return Response.json({ message: createMockChatReply(body) });
 	} catch (error) {
 		return new Response(
 			JSON.stringify({

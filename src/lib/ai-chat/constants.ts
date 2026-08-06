@@ -1,1 +1,1 @@
-export const DEFAULT_CHAT_TRANSPORT = "/api/chat";
+export const DEFAULT_CHAT_ENDPOINT = "/api/chat";

@@ -14,9 +14,9 @@ export type {
 	UpdateChatThreadPatch
 } from "./core/types.js";
 
-export type { AiChatTransport } from "./core/transport.js";
+export type { ChatConfig, ChatHandler, ChatHandlerInput } from "./core/chat.js";
 
 export { clientTools, toolDefinition } from "./tools/index.js";
 export type { AnyClientTool, ClientTool, ServerTool, ToolDefinition } from "./tools/index.js";
 
-export { DEFAULT_CHAT_TRANSPORT } from "./constants.js";
+export { DEFAULT_CHAT_ENDPOINT } from "./constants.js";

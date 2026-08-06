@@ -1,4 +1,4 @@
-import type { ChatPersistedState } from "@tanstack/ai-client";
+import type { UIMessage } from "@tanstack/ai-client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	createLocalChatStorage,
@@ -6,15 +6,13 @@ import {
 	toMessagePersistence
 } from "./storage.js";
 
-const sampleState: ChatPersistedState = {
-	messages: [
-		{
-			id: "m1",
-			role: "user",
-			parts: [{ type: "text", content: "Hello" }]
-		}
-	]
-};
+const sampleMessages: UIMessage[] = [
+	{
+		id: "m1",
+		role: "user",
+		parts: [{ type: "text", content: "Hello" }]
+	}
+];
 
 describe("createMemoryChatStorage", () => {
 	it("creates and lists threads by updatedAt descending", async () => {
@@ -51,22 +49,22 @@ describe("createMemoryChatStorage", () => {
 		});
 	});
 
-	it("stores and retrieves message state per thread", async () => {
+	it("stores and retrieves message history per thread", async () => {
 		const storage = createMemoryChatStorage();
 		const thread = await storage.createThread({ title: "Chat" });
 
-		await storage.setThreadState(thread.id, sampleState);
-		expect(await storage.getThreadState(thread.id)).toEqual(sampleState);
+		await storage.saveMessages(thread.id, sampleMessages);
+		expect(await storage.getMessages(thread.id)).toEqual(sampleMessages);
 	});
 
-	it("removes message state independently", async () => {
+	it("removes message history independently", async () => {
 		const storage = createMemoryChatStorage();
 		const thread = await storage.createThread({ title: "Chat" });
 
-		await storage.setThreadState(thread.id, sampleState);
-		await storage.removeThreadState(thread.id);
+		await storage.saveMessages(thread.id, sampleMessages);
+		await storage.deleteMessages(thread.id);
 
-		expect(await storage.getThreadState(thread.id)).toBeNull();
+		expect(await storage.getMessages(thread.id)).toBeNull();
 		expect(await storage.getThread(thread.id)).not.toBeNull();
 	});
 
@@ -75,15 +73,15 @@ describe("createMemoryChatStorage", () => {
 		expect(await storage.getThread("missing")).toBeNull();
 	});
 
-	it("deletes thread metadata and message state together", async () => {
+	it("deletes thread metadata and message history together", async () => {
 		const storage = createMemoryChatStorage();
 		const thread = await storage.createThread({ title: "Chat" });
 
-		await storage.setThreadState(thread.id, sampleState);
+		await storage.saveMessages(thread.id, sampleMessages);
 		await storage.deleteThread(thread.id);
 
 		expect(await storage.getThread(thread.id)).toBeNull();
-		expect(await storage.getThreadState(thread.id)).toBeNull();
+		expect(await storage.getMessages(thread.id)).toBeNull();
 	});
 });
 
@@ -93,8 +91,8 @@ describe("toMessagePersistence", () => {
 		const thread = await storage.createThread({ title: "Chat" });
 		const persistence = toMessagePersistence(storage);
 
-		await persistence.setItem(thread.id, sampleState);
-		expect(await persistence.getItem(thread.id)).toEqual(sampleState);
+		await persistence.setItem(thread.id, { messages: sampleMessages });
+		expect(await persistence.getItem(thread.id)).toEqual({ messages: sampleMessages });
 
 		await persistence.removeItem(thread.id);
 		expect(await persistence.getItem(thread.id)).toBeNull();
@@ -148,25 +146,25 @@ describe("createLocalChatStorage", () => {
 		]);
 	});
 
-	it("persists thread metadata and message state", async () => {
+	it("persists thread metadata and message history", async () => {
 		const storage = createLocalChatStorage({ keyPrefix: "test:" });
 		const thread = await storage.createThread({ title: "Local chat" });
 
-		await storage.setThreadState(thread.id, sampleState);
+		await storage.saveMessages(thread.id, sampleMessages);
 
 		const reopened = createLocalChatStorage({ keyPrefix: "test:" });
 		expect(await reopened.getThread(thread.id)).toMatchObject({ title: "Local chat" });
-		expect(await reopened.getThreadState(thread.id)).toEqual(sampleState);
+		expect(await reopened.getMessages(thread.id)).toEqual(sampleMessages);
 	});
 
-	it("deletes thread metadata and message state together", async () => {
+	it("deletes thread metadata and message history together", async () => {
 		const storage = createLocalChatStorage({ keyPrefix: "test:" });
 		const thread = await storage.createThread({ title: "Temporary" });
 
-		await storage.setThreadState(thread.id, sampleState);
+		await storage.saveMessages(thread.id, sampleMessages);
 		await storage.deleteThread(thread.id);
 
 		expect(await storage.getThread(thread.id)).toBeNull();
-		expect(await storage.getThreadState(thread.id)).toBeNull();
+		expect(await storage.getMessages(thread.id)).toBeNull();
 	});
 });
