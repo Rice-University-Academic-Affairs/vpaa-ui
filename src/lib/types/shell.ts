@@ -1,4 +1,4 @@
-import type { AppShellChat } from "./chat.js";
+import type { AiChatSession } from "$lib/ai-chat/session/create-session.svelte.js";
 
 export type AppShellUser = {
 	name: string;
@@ -12,4 +12,4 @@ export type AppShellSearch = {
 	placeholder?: string;
 };
 
-export type { AppShellChat };
+export type AppShellChat = AiChatSession;

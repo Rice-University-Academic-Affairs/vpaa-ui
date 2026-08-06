@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { AiChatClient } from "$lib/ai-chat/create-ai-chat.svelte.js";
+	import type { AiChatClient } from "$lib/ai-chat/client/create-chat.svelte.js";
 	import { cn } from "$lib/utils.js";
 	import type { AiChatThread } from "$lib/types/chat.js";
 	import AiChatMessages from "./AiChatMessages.svelte";

@@ -24,8 +24,30 @@ export { default as AiChatMessages } from "./components/ai-chat/AiChatMessages.s
 export { default as AiChatMessage } from "./components/ai-chat/AiChatMessage.svelte";
 export { default as AiChatInput } from "./components/ai-chat/AiChatInput.svelte";
 
-export { createAiChat } from "./ai-chat/create-ai-chat.svelte.js";
-export type { AiChatClient, CreateAiChatOptions } from "./ai-chat/create-ai-chat.svelte.js";
+export {
+	createAiChatSession,
+	createLocalChatStorage,
+	createMemoryChatStorage,
+	clientTools,
+	toolDefinition,
+	createChatRouteHandler,
+	DEFAULT_CHAT_ENDPOINT,
+	type AiChatSession,
+	type CreateAiChatSessionOptions,
+	type ChatStorage,
+	type AiChatThread,
+	type CreateChatThreadInput,
+	type LocalChatStorageOptions,
+	type UpdateChatThreadPatch,
+	type ChatEndpoint,
+	type AnyClientTool,
+	type ClientTool,
+	type ServerTool,
+	type ToolDefinition,
+	type ChatRouteHandler,
+	type ChatRouteHandlerContext,
+	type CreateChatRouteHandlerOptions
+} from "./ai-chat/index.js";
 
 export { dataTableFeatures } from "./components/data-table/table-features.js";
 export type { DataTableInstance } from "./components/data-table/table-types.js";
@@ -34,7 +56,6 @@ export type { Column, ColumnStyle } from "./types/data-table.js";
 export type { AppNavGroup, AppNavItem, AppNavIcon } from "./types/navigation.js";
 export { isNavItemActive } from "./types/navigation.js";
 export type { AppShellUser, AppShellSearch, AppShellChat } from "./types/shell.js";
-export type { AiChatThread } from "./types/chat.js";
 
 export type {
 	DepartmentRow,

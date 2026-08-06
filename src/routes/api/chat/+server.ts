@@ -1,21 +1,14 @@
-import { toServerSentEventsResponse } from "@tanstack/ai";
+import { createChatRouteHandler } from "$lib/ai-chat/server/create-chat-route-handler.js";
 import { createMockChatStream } from "./mock-stream.js";
-import type { RequestHandler } from "./$types.js";
+import { serverTools } from "./tools.js";
 
-export const POST: RequestHandler = async ({ request }) => {
-	const body = await request.json();
-
-	try {
-		return toServerSentEventsResponse(createMockChatStream(body));
-	} catch (error) {
-		return new Response(
-			JSON.stringify({
-				error: error instanceof Error ? error.message : "An error occurred"
-			}),
-			{
-				status: 500,
-				headers: { "Content-Type": "application/json" }
-			}
-		);
-	}
-};
+export const POST = createChatRouteHandler({
+	serverTools,
+	createStream: (context) =>
+		createMockChatStream({
+			messages: context.messages,
+			threadId: context.threadId,
+			runId: context.runId,
+			tools: context.allTools
+		})
+});

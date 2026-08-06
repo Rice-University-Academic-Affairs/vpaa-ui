@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, within } from "@testing-library/svelte";
-import userEvent from "@testing-library/user-event";
+import { userEvent } from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 import DataTable from "./DataTable.svelte";
 import { facultyColumns, facultyData } from "../../../test/table-fixtures.js";
@@ -53,10 +53,9 @@ describe("DataTable", () => {
 	});
 
 	it("advances to the next page when Next is clicked", async () => {
-		const user = userEvent.setup();
 		const { table } = renderFacultyTable();
 
-		await user.click(table.getByRole("button", { name: "Next" }));
+		await userEvent.click(table.getByRole("button", { name: "Next" }));
 
 		expect(table.getByText("Page 2 of 2")).toBeInTheDocument();
 		expect(getVisibleFacultyNames(table.getByRole("table"))).toHaveLength(2);
@@ -67,11 +66,10 @@ describe("DataTable", () => {
 	});
 
 	it("returns to the previous page when Previous is clicked", async () => {
-		const user = userEvent.setup();
 		const { table } = renderFacultyTable();
 
-		await user.click(table.getByRole("button", { name: "Next" }));
-		await user.click(table.getByRole("button", { name: "Previous" }));
+		await userEvent.click(table.getByRole("button", { name: "Next" }));
+		await userEvent.click(table.getByRole("button", { name: "Previous" }));
 
 		expect(table.getByText("Page 1 of 2")).toBeInTheDocument();
 		expect(getVisibleFacultyNames(table.getByRole("table"))[0]).toBe("Dr. Elena Martinez");
@@ -79,23 +77,21 @@ describe("DataTable", () => {
 	});
 
 	it("disables Previous on the first page and Next on the last page", async () => {
-		const user = userEvent.setup();
 		const { table } = renderFacultyTable();
 
 		expect(table.getByRole("button", { name: "Previous" })).toBeDisabled();
 		expect(table.getByRole("button", { name: "Next" })).toBeEnabled();
 
-		await user.click(table.getByRole("button", { name: "Next" }));
+		await userEvent.click(table.getByRole("button", { name: "Next" }));
 
 		expect(table.getByRole("button", { name: "Previous" })).toBeEnabled();
 		expect(table.getByRole("button", { name: "Next" })).toBeDisabled();
 	});
 
 	it("filters rows by search and resets to page 1", async () => {
-		const user = userEvent.setup();
 		const { table } = renderFacultyTable({ searchPlaceholder: "Search faculty…" });
 
-		await user.click(table.getByRole("button", { name: "Next" }));
+		await userEvent.click(table.getByRole("button", { name: "Next" }));
 		expect(table.getByText("Page 2 of 2")).toBeInTheDocument();
 
 		const searchInput = table.getByLabelText("Search faculty…");

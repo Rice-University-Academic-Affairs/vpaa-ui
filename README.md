@@ -1,65 +1,253 @@
-# Svelte library
+# VPAA UI
 
-Everything you need to build a Svelte library, powered by [`sv`](https://npmjs.com/package/sv).
-
-Read more about creating a library [in the docs](https://svelte.dev/docs/kit/packaging).
-
-## Creating a project
-
-If you're seeing this, you've probably already done this step. Congrats!
+Svelte 5 component library for VPAA admin apps. Includes layout, tables, metrics, and a built-in AI chat assistant.
 
 ```sh
-# create a new project in the current directory
-npx sv create
-
-# create a new project in my-app
-npx sv create my-app
-```
-
-To recreate this project with the same configuration:
-
-```sh
-# recreate this project
-npx sv@0.16.1 create --template library --types ts --install npm .
-```
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
+npm install
 npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
 ```
 
-Everything inside `src/lib` is part of your library, everything inside `src/routes` can be used as a showcase or preview app.
+Open the app and click the sparkles icon to try chat.
 
-## Building
+---
 
-To build your library:
+## AI Chat
+
+A full-stack SvelteKit app wires up three things:
+
+| Piece | Where | What it does |
+|---|---|---|
+| **Storage** | Client | Threads + message history (sidebar + persistence) |
+| **Session** | Client | Chat UI, client tools, talks to your API |
+| **Route handler** | Server | LLM agent, server tools, SSE responses |
+
+```
+Browser                              Your SvelteKit API
+────────                             ──────────────────
+createAiChatSession  ──POST /api/chat──►  createChatRouteHandler
+  storage (threads)                         adapter (OpenAI, etc.)
+  clientTools                               serverTools
+```
+
+Defaults work out of the box for local development: `localStorage` storage and `/api/chat` endpoint.
+
+---
+
+## 1. Storage (threads + messages)
+
+Implement `ChatStorage` to persist threads and message history in your own database. The chat UI calls these methods automatically.
+
+| Method | Purpose |
+|---|---|
+| `listThreads` | Sidebar thread list |
+| `getThread` | One thread's metadata |
+| `createThread` | New thread |
+| `updateThread` | Title, preview, etc. |
+| `deleteThread` | Remove a thread |
+| `getMessages` | Message history for a thread |
+| `saveMessages` | Save message history |
+| `deleteMessages` | Clear message history |
+
+```ts
+// src/lib/chat/storage.ts
+import type { ChatStorage } from "vpaa-ui";
+
+export const chatStorage: ChatStorage = {
+  listThreads: () => fetch("/api/threads").then((r) => r.json()),
+  getThread: (id) => fetch(`/api/threads/${id}`).then((r) => r.json()),
+  createThread: (input) =>
+    fetch("/api/threads", { method: "POST", body: JSON.stringify(input) }).then((r) => r.json()),
+  updateThread: (id, patch) =>
+    fetch(`/api/threads/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  deleteThread: (id) => fetch(`/api/threads/${id}`, { method: "DELETE" }),
+  getMessages: (id) => fetch(`/api/threads/${id}/messages`).then((r) => r.json()),
+  saveMessages: (id, messages) =>
+    fetch(`/api/threads/${id}/messages`, {
+      method: "PUT",
+      body: JSON.stringify({ messages })
+    }),
+  deleteMessages: (id) => fetch(`/api/threads/${id}/messages`, { method: "DELETE" })
+};
+```
+
+Use `createLocalChatStorage()` for prototyping and `createMemoryChatStorage()` in tests.
+
+---
+
+## 2. Client session + client tools
+
+```ts
+// src/lib/chat/client-tools.ts
+import { clientTools, toolDefinition } from "vpaa-ui";
+
+export const highlightRow = toolDefinition({
+  name: "highlight_row",
+  description: "Highlight a table row by id",
+  inputSchema: {
+    type: "object",
+    properties: { rowId: { type: "string" } },
+    required: ["rowId"]
+  },
+  outputSchema: {
+    type: "object",
+    properties: { highlighted: { type: "boolean" } },
+    required: ["highlighted"]
+  }
+}).client(({ rowId }) => {
+  document.getElementById(rowId)?.classList.add("highlight");
+  return { highlighted: true };
+});
+
+export const chatClientTools = clientTools(highlightRow);
+```
+
+```ts
+// src/lib/chat/session.ts
+import { createAiChatSession } from "vpaa-ui";
+import { chatClientTools } from "./client-tools.js";
+import { chatStorage } from "./storage.js";
+
+export const chat = createAiChatSession({
+  storage: chatStorage,
+  chat: "/api/chat",
+  clientTools: chatClientTools
+});
+```
+
+```svelte
+<!-- src/routes/+layout.svelte -->
+<script>
+  import { AppShell } from "vpaa-ui";
+  import { chat } from "$lib/chat/session.js";
+</script>
+
+<AppShell appName="My App" {navigation} {chat}>
+  {@render children()}
+</AppShell>
+```
+
+Client tools run in the browser. Register them with `clientTools` on the session — the client advertises them to the server on every request automatically.
+
+---
+
+## 3. Server route handler + server tools + LLM
+
+### LLM adapter
+
+Install a TanStack AI provider package. The **adapter** is the object that connects to your model (OpenAI, Anthropic, etc.):
 
 ```sh
-npm pack
+npm install @tanstack/ai-openai
 ```
 
-To create a production version of your showcase app:
+```ts
+// src/routes/api/chat/adapter.ts
+import { openaiText } from "@tanstack/ai-openai";
+import { OPENAI_API_KEY } from "$env/static/private";
 
-```sh
-npm run build
+export const adapter = openaiText("gpt-4o", {
+  apiKey: OPENAI_API_KEY
+});
 ```
 
-You can preview the production build with `npm run preview`.
+### Server tools
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+```ts
+// src/routes/api/chat/tools.ts
+import { toolDefinition } from "@tanstack/ai";
 
-## Publishing
+const getHeadcount = toolDefinition({
+  name: "get_headcount",
+  description: "Return current faculty headcount",
+  inputSchema: { type: "object", properties: {} },
+  outputSchema: {
+    type: "object",
+    properties: { count: { type: "number" } },
+    required: ["count"]
+  }
+});
 
-Go into the `package.json` and give your package the desired name through the `"name"` option. Also consider adding a `"license"` field and point it to a `LICENSE` file which you can create from a template (one popular option is the [MIT license](https://opensource.org/license/mit/)).
-
-To publish your library to [npm](https://www.npmjs.com):
-
-```sh
-npm publish
+export const serverTools = [
+  getHeadcount.server(async () => {
+    const count = await db.faculty.count();
+    return { count };
+  })
+];
 ```
+
+### Route handler
+
+```ts
+// src/routes/api/chat/+server.ts
+import { createChatRouteHandler } from "vpaa-ui";
+import { adapter } from "./adapter.js";
+import { serverTools } from "./tools.js";
+
+export const POST = createChatRouteHandler({
+  serverTools,
+  adapter
+});
+```
+
+`createChatRouteHandler` merges `serverTools` with the session's `clientTools` into `allTools` for the agent. You don't merge them yourself.
+
+### Mock agent (no LLM)
+
+For demos or tests without a live model, pass `createStream` instead of `adapter`:
+
+```ts
+export const POST = createChatRouteHandler({
+  serverTools,
+  createStream: (context) => myMockStream(context)
+});
+```
+
+The showcase uses this pattern — see `src/routes/api/chat/+server.ts`.
+
+---
+
+## Tool summary
+
+| | Client tool | Server tool |
+|---|---|---|
+| Define | `toolDefinition(...).client(fn)` | `toolDefinition(...).server(fn)` |
+| Register | `clientTools: clientTools(...)` on session | `serverTools: [...]` on route handler |
+| Runs in | Browser | Your server |
+
+---
+
+## Session API
+
+| Member | Description |
+|---|---|
+| `threads` | Thread list for the sidebar |
+| `selectedThread` | Active thread metadata |
+| `chat` | Active conversation (`messages`, `isLoading`, `sendMessage`, etc.) |
+| `selectThread(id)` | Switch threads |
+| `createThread()` | Start a new thread |
+| `deleteThread(id)` | Remove a thread |
+| `dispose()` | Clean up (call on unmount if not using `AppShell`) |
+
+---
+
+## Without AppShell
+
+```svelte
+<script>
+  import { AiChat, createAiChatSession } from "vpaa-ui";
+  const session = createAiChatSession();
+</script>
+
+<AiChat {session} />
+```
+
+---
+
+## Scripts
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Start the showcase app |
+| `npm run build` | Build the library |
+| `npm run check` | Type-check |
+| `npm test` | Run tests |

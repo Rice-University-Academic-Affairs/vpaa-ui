@@ -1,36 +1,23 @@
 <script lang="ts">
-	import { createAiChat } from "$lib/ai-chat/create-ai-chat.svelte.js";
-	import type { AppShellChat } from "$lib/types/chat.js";
+	import type { AiChatSession } from "$lib/ai-chat/session/create-session.svelte.js";
 	import AiChatPanel from "./AiChatPanel.svelte";
 	import AiChatTrigger from "./AiChatTrigger.svelte";
 	import { onDestroy } from "svelte";
 
 	type Props = {
-		config: AppShellChat;
+		session: AiChatSession;
 		variant?: "default" | "header";
 	};
 
-	let { config, variant = "default" }: Props = $props();
+	let { session, variant = "default" }: Props = $props();
 
 	let open = $state(false);
 
-	const ownsChat = !config.chat;
-	const chat = config.chat ?? createAiChat({ endpoint: config.endpoint ?? "/api/chat" });
-
 	onDestroy(() => {
-		if (ownsChat) {
-			chat.stop();
-		}
+		session.dispose();
 	});
 </script>
 
 <AiChatTrigger {variant} expanded={open} onclick={() => (open = true)} />
 
-<AiChatPanel
-	bind:open
-	{chat}
-	threads={config.threads ?? []}
-	selectedThreadId={config.selectedThreadId}
-	onThreadSelect={config.onThreadSelect}
-	onNewThread={config.onNewThread}
-/>
+<AiChatPanel bind:open {session} />

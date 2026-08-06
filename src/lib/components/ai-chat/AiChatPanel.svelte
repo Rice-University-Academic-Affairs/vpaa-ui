@@ -1,42 +1,16 @@
 <script lang="ts">
-	import type { AiChatClient } from "$lib/ai-chat/create-ai-chat.svelte.js";
+	import type { AiChatSession } from "$lib/ai-chat/session/create-session.svelte.js";
 	import * as Sheet from "$lib/components/ui/sheet/index.js";
 	import Sparkles from "@lucide/svelte/icons/sparkles";
-	import type { AiChatThread } from "$lib/types/chat.js";
 	import AiChatThreadList from "./AiChatThreadList.svelte";
 	import AiChatView from "./AiChatView.svelte";
 
 	type Props = {
 		open?: boolean;
-		chat: AiChatClient;
-		threads?: readonly AiChatThread[];
-		selectedThreadId?: string | null;
-		onThreadSelect?: (threadId: string) => void;
-		onNewThread?: () => void;
+		session: AiChatSession;
 	};
 
-	let {
-		open = $bindable(false),
-		chat,
-		threads = [],
-		selectedThreadId = null,
-		onThreadSelect,
-		onNewThread
-	}: Props = $props();
-
-	const selectedThread = $derived(
-		threads.find((thread) => thread.id === selectedThreadId) ?? null
-	);
-
-	function handleThreadSelect(threadId: string) {
-		chat.clear();
-		onThreadSelect?.(threadId);
-	}
-
-	function handleNewThread() {
-		chat.clear();
-		onNewThread?.();
-	}
+	let { open = $bindable(false), session }: Props = $props();
 </script>
 
 <Sheet.Root bind:open>
@@ -56,12 +30,12 @@
 
 		<div class="flex min-h-0 flex-1 overflow-hidden">
 			<AiChatThreadList
-				{threads}
-				{selectedThreadId}
-				onThreadSelect={handleThreadSelect}
-				onNewThread={handleNewThread}
+				threads={session.threads}
+				selectedThreadId={session.selectedThreadId}
+				onThreadSelect={(threadId) => void session.selectThread(threadId)}
+				onNewThread={() => void session.createThread()}
 			/>
-			<AiChatView {chat} thread={selectedThread} />
+			<AiChatView chat={session.chat} thread={session.selectedThread} />
 		</div>
 	</Sheet.Content>
 </Sheet.Root>
