@@ -1,7 +1,7 @@
 import { mergeAgentTools } from "@tanstack/ai";
 import { describe, expect, it } from "vitest";
 import { scrollToTopDef } from "$lib/ai-chat/tools/examples/scroll-to-top.js";
-import { serverTools } from "./server-tools.js";
+import { serverTools } from "./tools.js";
 
 describe("mergeAgentTools", () => {
 	it("keeps server tools when no client tools are declared", () => {

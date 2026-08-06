@@ -10,7 +10,7 @@ import {
 
 export type ChatRouteHandlerContext = Awaited<ReturnType<typeof chatParamsFromRequest>> & {
 	clientTools: Awaited<ReturnType<typeof chatParamsFromRequest>>["tools"];
-	tools: ReadonlyArray<
+	mergedTools: ReadonlyArray<
 		AnyTool | { name: string; description: string; inputSchema?: unknown; parameters?: unknown }
 	>;
 };
@@ -23,11 +23,11 @@ type ChatRouteHandlerBaseOptions = {
 export type CreateChatRouteHandlerOptions = ChatRouteHandlerBaseOptions &
 	(
 		| {
-				adapter: AnyTextAdapter;
+				llmAdapter: AnyTextAdapter;
 				createStream?: never;
 		  }
 		| {
-				adapter?: never;
+				llmAdapter?: never;
 				createStream: (context: ChatRouteHandlerContext) => AsyncIterable<StreamChunk>;
 		  }
 	);
@@ -36,27 +36,27 @@ export type ChatRouteHandler = (event: { request: Request }) => Promise<Response
 
 function buildHandlerContext(
 	params: Awaited<ReturnType<typeof chatParamsFromRequest>>,
-	tools: ChatRouteHandlerContext["tools"]
+	mergedTools: ChatRouteHandlerContext["mergedTools"]
 ): ChatRouteHandlerContext {
 	return {
 		...params,
 		clientTools: params.tools,
-		tools
+		mergedTools
 	};
 }
 
 export function createChatRouteHandler(options: CreateChatRouteHandlerOptions): ChatRouteHandler {
-	if (!options.adapter && !options.createStream) {
-		throw new Error("createChatRouteHandler requires either createStream or adapter.");
+	if (!options.llmAdapter && !options.createStream) {
+		throw new Error("createChatRouteHandler requires either llmAdapter or createStream.");
 	}
 
 	return async ({ request }) => {
 		try {
 			const params = await chatParamsFromRequest(request);
-			const tools = mergeAgentTools(options.tools ?? [], params.tools);
+			const mergedTools = mergeAgentTools(options.tools ?? [], params.tools);
 			const context = buildHandlerContext(
 				params,
-				tools as ChatRouteHandlerContext["tools"]
+				mergedTools as ChatRouteHandlerContext["mergedTools"]
 			);
 
 			options.onRequest?.(context);
@@ -64,9 +64,9 @@ export function createChatRouteHandler(options: CreateChatRouteHandlerOptions): 
 			const stream =
 				options.createStream?.(context) ??
 				chat({
-					adapter: options.adapter!,
+					adapter: options.llmAdapter!,
 					messages: params.messages,
-					tools,
+					tools: mergedTools,
 					threadId: params.threadId,
 					runId: params.runId,
 					parentRunId: params.parentRunId,

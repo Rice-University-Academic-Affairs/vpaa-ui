@@ -67,9 +67,9 @@ function createRequest(body: unknown = validParams()) {
 }
 
 describe("createChatRouteHandler", () => {
-	it("requires either adapter or createStream", () => {
+	it("requires either llmAdapter or createStream", () => {
 		expect(() => createChatRouteHandler({ tools: [serverTool] } as never)).toThrow(
-			/createStream or adapter/
+			/llmAdapter or createStream/
 		);
 	});
 
@@ -117,7 +117,7 @@ describe("createChatRouteHandler", () => {
 
 		await handler({ request: createRequest() });
 
-		expect(contexts[0]?.tools.map((tool) => tool.name)).toEqual([
+		expect(contexts[0]?.mergedTools.map((tool) => tool.name)).toEqual([
 			"server_echo",
 			"client_flag"
 		]);
@@ -144,7 +144,7 @@ describe("createChatRouteHandler", () => {
 						name: "client_flag"
 					})
 				],
-				tools: expect.arrayContaining([
+				mergedTools: expect.arrayContaining([
 					expect.objectContaining({ name: "server_echo" }),
 					expect.objectContaining({ name: "client_flag" })
 				])
@@ -152,21 +152,21 @@ describe("createChatRouteHandler", () => {
 		);
 	});
 
-	it("delegates to chat() when an adapter is provided", async () => {
+	it("delegates to chat() when an llmAdapter is provided", async () => {
 		chatParamsFromRequestMock.mockResolvedValueOnce(validParams());
 		chatMock.mockReturnValueOnce(testStream());
 
-		const adapter = { name: "test-adapter" };
+		const llmAdapter = { name: "test-adapter" };
 		const handler = createChatRouteHandler({
 			tools: [serverTool],
-			adapter: adapter as never
+			llmAdapter: llmAdapter as never
 		});
 
 		await handler({ request: createRequest() });
 
 		expect(chatMock).toHaveBeenCalledWith(
 			expect.objectContaining({
-				adapter,
+				adapter: llmAdapter,
 				threadId: "thread-1",
 				runId: "run-1",
 				tools: expect.arrayContaining([

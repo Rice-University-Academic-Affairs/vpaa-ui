@@ -1,7 +1,7 @@
 import http from "node:http";
 import { Readable } from "node:stream";
 import { createChatRouteHandler } from "../server/create-chat-route-handler.js";
-import { getDemoStatsDef } from "../../../routes/api/chat/server-tools.js";
+import { getDemoStatsDef } from "../../../routes/api/chat/tools.js";
 import { createTestChatStream } from "./test-chat-stream.js";
 
 const testServerTools = [
@@ -68,7 +68,7 @@ export async function startTestChatServer(): Promise<TestChatServer> {
 				messages: context.messages,
 				threadId: context.threadId,
 				runId: context.runId,
-				tools: context.tools,
+				tools: context.mergedTools,
 				resume: context.resume
 			})
 	});

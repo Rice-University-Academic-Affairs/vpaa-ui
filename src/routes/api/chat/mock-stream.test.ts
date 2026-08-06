@@ -1,7 +1,7 @@
 import { EventType, type StreamChunk } from "@tanstack/ai";
 import { describe, expect, it } from "vitest";
 import { createMockChatStream } from "./mock-stream.js";
-import { serverTools } from "./server-tools.js";
+import { serverTools } from "./tools.js";
 
 async function collectChunks(generator: AsyncGenerator<StreamChunk>) {
 	const chunks: StreamChunk[] = [];

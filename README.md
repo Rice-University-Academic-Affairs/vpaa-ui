@@ -13,62 +13,29 @@ Open the app and click the sparkles icon to try chat.
 
 ## AI Chat
 
-Two things to wire up: **storage** (threads + message history) and **chat** (your agent endpoint URL). Pass both to `createAiChatSession`, then hand the session to `AppShell`.
+A full-stack SvelteKit app wires up three things:
 
-```ts
-import { createAiChatSession, createLocalChatStorage } from "vpaa-ui";
+| Piece | Where | What it does |
+|---|---|---|
+| **Storage** | Client | Threads + message history (sidebar + persistence) |
+| **Session** | Client | Chat UI, client tools, talks to your API |
+| **Route handler** | Server | LLM agent, server tools, SSE responses |
 
-const chat = createAiChatSession({
-  storage: createLocalChatStorage(),
-  chat: "/api/chat"
-});
+```
+Browser                              Your SvelteKit API
+────────                             ──────────────────
+createAiChatSession  ──POST /api/chat──►  createChatRouteHandler
+  storage (threads)                         llmAdapter (OpenAI, etc.)
+  client tools                              server tools
 ```
 
-```svelte
-<AppShell appName="My App" {navigation} {chat}>
-  {@render children()}
-</AppShell>
-```
-
-Defaults work out of the box — `localStorage` for storage, `/api/chat` for chat.
+Defaults work out of the box for local development: `localStorage` storage and `/api/chat` endpoint.
 
 ---
 
-## Your chat endpoint
+## 1. Storage (threads + messages)
 
-The client speaks the **TanStack AG-UI** protocol over **Server-Sent Events (SSE)**. Register server tools and export a SvelteKit route handler:
-
-```ts
-// src/routes/api/chat/+server.ts
-import { createChatRouteHandler } from "vpaa-ui";
-import { serverTools } from "./tools.js";
-import { myAdapter } from "./adapter.js";
-
-export const POST = createChatRouteHandler({
-  tools: serverTools,
-  adapter: myAdapter
-});
-```
-
-For a mock or custom stream (no live LLM), pass `createStream` instead of `adapter`:
-
-```ts
-export const POST = createChatRouteHandler({
-  tools: serverTools,
-  createStream: (context) => myMockStream(context)
-});
-```
-
-- **Server tools** — `toolDefinition(...).server(...)` in your `serverTools` array.
-- **Client tools** — registered on `createAiChatSession({ tools })`; merged automatically from each request.
-
-See `src/routes/api/chat/+server.ts` in this repo for a working mock.
-
----
-
-## Your storage backend
-
-Implement `ChatStorage` to use your own database instead of `localStorage`:
+Implement `ChatStorage` to persist threads and message history in your own database. The chat UI calls these methods automatically.
 
 | Method | Purpose |
 |---|---|
@@ -82,19 +49,180 @@ Implement `ChatStorage` to use your own database instead of `localStorage`:
 | `deleteMessages` | Clear message history |
 
 ```ts
-const storage: ChatStorage = {
-  listThreads: () => api.get("/threads"),
-  getThread: (id) => api.get(`/threads/${id}`),
-  createThread: (input) => api.post("/threads", input),
-  updateThread: (id, patch) => api.patch(`/threads/${id}`, patch),
-  deleteThread: (id) => api.delete(`/threads/${id}`),
-  getMessages: (id) => api.get(`/threads/${id}/messages`),
-  saveMessages: (id, messages) => api.put(`/threads/${id}/messages`, { messages }),
-  deleteMessages: (id) => api.delete(`/threads/${id}/messages`)
+// src/lib/chat/storage.ts
+import type { ChatStorage } from "vpaa-ui";
+
+export const chatStorage: ChatStorage = {
+  listThreads: () => fetch("/api/threads").then((r) => r.json()),
+  getThread: (id) => fetch(`/api/threads/${id}`).then((r) => r.json()),
+  createThread: (input) =>
+    fetch("/api/threads", { method: "POST", body: JSON.stringify(input) }).then((r) => r.json()),
+  updateThread: (id, patch) =>
+    fetch(`/api/threads/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  deleteThread: (id) => fetch(`/api/threads/${id}`, { method: "DELETE" }),
+  getMessages: (id) => fetch(`/api/threads/${id}/messages`).then((r) => r.json()),
+  saveMessages: (id, messages) =>
+    fetch(`/api/threads/${id}/messages`, {
+      method: "PUT",
+      body: JSON.stringify({ messages })
+    }),
+  deleteMessages: (id) => fetch(`/api/threads/${id}/messages`, { method: "DELETE" })
 };
 ```
 
-For tests, use `createMemoryChatStorage()`.
+Use `createLocalChatStorage()` for prototyping and `createMemoryChatStorage()` in tests.
+
+---
+
+## 2. Client session
+
+Create the session once and pass it to `AppShell` (or `AiChat` directly).
+
+```ts
+// src/lib/chat/session.ts
+import {
+  clientTools,
+  createAiChatSession,
+  createLocalChatStorage,
+  toolDefinition
+} from "vpaa-ui";
+import { chatStorage } from "./storage.js";
+
+const highlightRow = toolDefinition({
+  name: "highlight_row",
+  description: "Highlight a table row by id",
+  inputSchema: {
+    type: "object",
+    properties: { rowId: { type: "string" } },
+    required: ["rowId"]
+  },
+  outputSchema: {
+    type: "object",
+    properties: { highlighted: { type: "boolean" } },
+    required: ["highlighted"]
+  }
+}).client(({ rowId }) => {
+  document.getElementById(rowId)?.classList.add("highlight");
+  return { highlighted: true };
+});
+
+export const chat = createAiChatSession({
+  storage: chatStorage,
+  chat: "/api/chat",
+  tools: clientTools(highlightRow)
+});
+```
+
+```svelte
+<!-- src/routes/+layout.svelte -->
+<script>
+  import { AppShell } from "vpaa-ui";
+  import { chat } from "$lib/chat/session.js";
+</script>
+
+<AppShell appName="My App" {navigation} {chat}>
+  {@render children()}
+</AppShell>
+```
+
+### Client tools
+
+Client tools run in the browser. Define with `toolDefinition(...).client(fn)`, then register with `clientTools(...)` on the session. The client advertises them to the server on every request — you don't send them manually.
+
+---
+
+## 3. Server route handler
+
+Export a SvelteKit `POST` handler with `createChatRouteHandler`. It handles AG-UI request parsing, merging client + server tools, and SSE responses.
+
+### Connect your LLM provider
+
+Install a TanStack AI provider package and create an **LLM adapter** — the object that tells TanStack which model to call:
+
+```sh
+npm install @tanstack/ai-openai
+```
+
+```ts
+// src/routes/api/chat/llm.ts
+import { openaiText } from "@tanstack/ai-openai";
+import { OPENAI_API_KEY } from "$env/static/private";
+
+export const llmAdapter = openaiText("gpt-4o", {
+  apiKey: OPENAI_API_KEY
+});
+```
+
+Other providers work the same way (`@tanstack/ai-anthropic`, etc.). See [TanStack AI docs](https://tanstack.com/ai).
+
+### Define server tools
+
+Server tools run on your machine. Same `toolDefinition` as the client, but use `.server(fn)`:
+
+```ts
+// src/routes/api/chat/tools.ts
+import { toolDefinition } from "@tanstack/ai";
+
+const getHeadcount = toolDefinition({
+  name: "get_headcount",
+  description: "Return current faculty headcount",
+  inputSchema: { type: "object", properties: {} },
+  outputSchema: {
+    type: "object",
+    properties: { count: { type: "number" } },
+    required: ["count"]
+  }
+});
+
+export const serverTools = [
+  getHeadcount.server(async () => {
+    const count = await db.faculty.count();
+    return { count };
+  })
+];
+```
+
+### Export the route
+
+```ts
+// src/routes/api/chat/+server.ts
+import { createChatRouteHandler } from "vpaa-ui";
+import { llmAdapter } from "./llm.js";
+import { serverTools } from "./tools.js";
+
+export const POST = createChatRouteHandler({
+  tools: serverTools,
+  llmAdapter
+});
+```
+
+That's the full server integration. `llmAdapter` is the LLM (the brain). `serverTools` are capabilities it can invoke. Client tools from the browser are merged in automatically.
+
+### Mock agent (no LLM)
+
+For demos or tests without a live model, pass `createStream` instead of `llmAdapter`:
+
+```ts
+export const POST = createChatRouteHandler({
+  tools: serverTools,
+  createStream: (context) => myMockStream(context)
+});
+```
+
+The showcase in this repo uses this pattern — see `src/routes/api/chat/+server.ts`.
+
+---
+
+## Tool summary
+
+| | Client tool | Server tool |
+|---|---|---|
+| Define | `toolDefinition(...).client(fn)` | `toolDefinition(...).server(fn)` |
+| Register | `tools: clientTools(...)` on session | `tools: serverTools` on route handler |
+| Runs in | Browser | Your server |
+| Example | Scroll page, highlight row | Query database, call internal API |
+
+Both sides use the same `toolDefinition` shape. TanStack handles the wire protocol.
 
 ---
 
@@ -104,37 +232,11 @@ For tests, use `createMemoryChatStorage()`.
 |---|---|
 | `threads` | Thread list for the sidebar |
 | `selectedThread` | Active thread metadata |
-| `chat` | Active conversation (messages, loading, errors) |
+| `chat` | Active conversation (`messages`, `isLoading`, `sendMessage`, etc.) |
 | `selectThread(id)` | Switch threads |
 | `createThread()` | Start a new thread |
 | `deleteThread(id)` | Remove a thread |
 | `dispose()` | Clean up (call on unmount if not using `AppShell`) |
-
----
-
-## Client tools
-
-```ts
-import { clientTools, createAiChatSession, toolDefinition } from "vpaa-ui";
-
-const scrollToTop = toolDefinition({
-  name: "scroll_to_top",
-  description: "Scroll the page to the top",
-  inputSchema: { type: "object", properties: {} },
-  outputSchema: {
-    type: "object",
-    properties: { scrolled: { type: "boolean" } },
-    required: ["scrolled"]
-  }
-}).client(() => {
-  window.scrollTo({ top: 0, behavior: "smooth" });
-  return { scrolled: true };
-});
-
-const chat = createAiChatSession({
-  tools: clientTools(scrollToTop)
-});
-```
 
 ---
 
