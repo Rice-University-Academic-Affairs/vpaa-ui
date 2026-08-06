@@ -71,6 +71,7 @@
 		collisionPadding={12}
 		class="w-[230px] overflow-y-auto overscroll-contain p-3"
 		style="max-height: var(--bits-popover-content-available-height);"
+		portalProps={{ disabled: import.meta.env.VITEST }}
 	>
 		{#each filters as filter, index (filter.column)}
 			{#if index > 0}

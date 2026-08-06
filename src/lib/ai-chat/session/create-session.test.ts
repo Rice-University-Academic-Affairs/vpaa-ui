@@ -261,7 +261,16 @@ describe("createAiChatSession", () => {
 
 		expect(session?.chat).toBeDefined();
 		await flushAsyncWork();
-		expect(session?.chat).toBeDefined();
+		expect(session?.isReady).toBe(true);
+		expect(session?.bootstrapError?.message).toBe("storage offline");
+	});
+
+	it("marks the session ready after bootstrap succeeds", async () => {
+		const storage = createMemoryChatStorage([{ id: "thread-a", title: "Alpha", updatedAt: "2026-03-03" }]);
+		const session = await mountSession({ storage, threadId: "thread-a" });
+
+		expect(session.isReady).toBe(true);
+		expect(session.bootstrapError).toBeNull();
 	});
 
 	it("syncs metadata from the finishing client messages via onFinish", async () => {

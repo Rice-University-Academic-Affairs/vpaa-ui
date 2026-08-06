@@ -54,7 +54,11 @@
 				</SecondaryButton>
 			{/snippet}
 		</DropdownMenu.Trigger>
-		<DropdownMenu.Content align="end" class="w-48">
+		<DropdownMenu.Content
+			align="end"
+			class="w-48"
+			portalProps={{ disabled: import.meta.env.VITEST }}
+		>
 			<DropdownMenu.Label>Sort by</DropdownMenu.Label>
 			<DropdownMenu.RadioGroup value={sortColumn} onValueChange={setSortColumn}>
 				{#each sortableColumns as column (column.id)}

@@ -10,6 +10,7 @@
 		threads: readonly AiChatThread[];
 		selectedThreadId?: string | null;
 		onThreadSelect?: (threadId: string) => void;
+		onThreadDelete?: (threadId: string) => void;
 		onNewThread?: () => void;
 		class?: string;
 	};
@@ -18,6 +19,7 @@
 		threads,
 		selectedThreadId = null,
 		onThreadSelect,
+		onThreadDelete,
 		onNewThread,
 		class: className
 	}: Props = $props();
@@ -47,7 +49,8 @@
 					<AiChatThreadItem
 						{thread}
 						selected={thread.id === selectedThreadId}
-						onclick={() => onThreadSelect?.(thread.id)}
+						onselect={() => onThreadSelect?.(thread.id)}
+						ondelete={() => onThreadDelete?.(thread.id)}
 					/>
 				{/each}
 			{/if}

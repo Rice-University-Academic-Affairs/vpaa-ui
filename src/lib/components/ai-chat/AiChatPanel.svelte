@@ -33,9 +33,15 @@
 				threads={session.threads}
 				selectedThreadId={session.selectedThreadId}
 				onThreadSelect={(threadId) => void session.selectThread(threadId)}
+				onThreadDelete={(threadId) => void session.deleteThread(threadId)}
 				onNewThread={() => void session.createThread()}
 			/>
-			<AiChatView chat={session.chat} thread={session.selectedThread} />
+			<AiChatView
+				chat={session.chat}
+				thread={session.selectedThread}
+				isReady={session.isReady}
+				bootstrapError={session.bootstrapError}
+			/>
 		</div>
 	</Sheet.Content>
 </Sheet.Root>

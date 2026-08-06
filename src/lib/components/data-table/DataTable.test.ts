@@ -1,11 +1,26 @@
-import { cleanup, fireEvent, render, within } from "@testing-library/svelte";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/svelte";
 import { userEvent } from "@testing-library/user-event";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DataTable from "./DataTable.svelte";
 import { facultyColumns, facultyData } from "../../../test/table-fixtures.js";
 
 afterEach(() => {
 	cleanup();
+	vi.restoreAllMocks();
+});
+
+beforeEach(() => {
+	vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({
+		width: 120,
+		height: 32,
+		top: 0,
+		left: 0,
+		bottom: 32,
+		right: 120,
+		x: 0,
+		y: 0,
+		toJSON: () => ({})
+	});
 });
 
 function renderFacultyTable(
@@ -99,6 +114,29 @@ describe("DataTable", () => {
 
 		expect(getVisibleFacultyNames(table.getByRole("table"))).toEqual(["Dr. Elena Martinez"]);
 		expect(table.getByText(/^Page 1 of/)).toBeInTheDocument();
+	});
+
+	it("renders the sort menu trigger for sortable columns", () => {
+		const { table } = renderFacultyTable();
+
+		expect(table.getByRole("button", { name: "Name" })).toBeInTheDocument();
+	});
+
+	it("filters rows from the status filter popover", async () => {
+		const { table } = renderFacultyTable();
+
+		await userEvent.click(table.getByRole("button", { name: "Filter" }));
+		await userEvent.click(await screen.findByLabelText("Tenured"));
+
+		expect(getVisibleFacultyNames(table.getByRole("table"))).toEqual([
+			"Dr. Elena Martinez",
+			"Dr. James Chen",
+			"Dr. Michael Okonkwo",
+			"Dr. Anna Bergström",
+			"Dr. Lisa Thompson",
+			"Dr. Emily Foster"
+		]);
+		expect(table.getByText("Showing 6")).toBeInTheDocument();
 	});
 
 	it("shows the empty state when no rows match", async () => {
