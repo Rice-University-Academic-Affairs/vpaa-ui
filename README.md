@@ -36,36 +36,36 @@ Defaults work out of the box — `localStorage` for storage, `/api/chat` for cha
 
 ## Your chat endpoint
 
-`POST` to your chat URL. The client sends:
+The client speaks the **TanStack AG-UI** protocol over **Server-Sent Events (SSE)**. Each `POST` sends a `RunAgentInput` JSON body (including `threadId`, `runId`, `messages`, and any registered **client tools** in `tools`). Your endpoint must return an SSE stream of AG-UI `StreamChunk` events — not a custom `{ message }` JSON payload.
 
-```json
-{
-  "threadId": "abc-123",
-  "messages": [
-    { "role": "user", "content": "Show me faculty headcount" }
-  ]
-}
-```
-
-Your endpoint returns:
-
-```json
-{ "message": "Headcount is up 3% this quarter." }
-```
-
-Plain text (`text/plain`) also works, including a streamed body for token-by-token replies.
-
-Example (SvelteKit):
+Server-side pattern:
 
 ```ts
+import { chatParamsFromRequest, mergeAgentTools, toServerSentEventsResponse } from "@tanstack/ai";
+
 export const POST = async ({ request }) => {
-  const { threadId, messages } = await request.json();
-  const message = await myAgent.ask({ threadId, messages });
-  return Response.json({ message });
+  try {
+    const params = await chatParamsFromRequest(request);
+    const tools = mergeAgentTools(serverTools, params.tools);
+
+    const stream = chat({
+      adapter: myAdapter,
+      messages: params.messages,
+      tools
+    });
+
+    return toServerSentEventsResponse(stream);
+  } catch (error) {
+    if (error instanceof Response) return error;
+    throw error;
+  }
 };
 ```
 
-See `src/routes/api/chat/+server.ts` in this repo for a working mock.
+- **Server tools** — implement with `toolDefinition(...).server(...)` and pass to `mergeAgentTools` / `chat({ tools })`.
+- **Client tools** — register in `createAiChatSession({ tools: clientTools(...) })`; the client advertises them in each request's `tools` array.
+
+See `src/routes/api/chat/+server.ts` in this repo for a working mock SSE endpoint.
 
 ---
 

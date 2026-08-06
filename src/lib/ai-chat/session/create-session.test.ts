@@ -1,3 +1,4 @@
+import type { AnyClientTool } from "@tanstack/ai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { UIMessage } from "@tanstack/ai-client";
 import { createMemoryChatStorage } from "../core/storage.js";
@@ -12,6 +13,7 @@ const createAiChatMock = vi.fn(
 		onFinish?: () => void;
 		chat?: string;
 		persistence?: unknown;
+		tools?: unknown;
 	}) => {
 	const client = createMockChatClient({
 		threadId: options.threadId,
@@ -27,6 +29,7 @@ vi.mock("../client/create-chat.svelte.js", () => ({
 		onFinish?: () => void;
 		chat?: string;
 		persistence?: unknown;
+		tools?: unknown;
 	}) => createAiChatMock(options)
 }));
 
@@ -274,5 +277,13 @@ describe("createAiChatSession", () => {
 			setItem: expect.any(Function),
 			removeItem: expect.any(Function)
 		});
+	});
+
+	it("forwards client tools to createAiChat", async () => {
+		const tools = [{ name: "scroll_to_top" }] as unknown as readonly AnyClientTool[];
+		const storage = createMemoryChatStorage([{ id: "thread-a", title: "Alpha", updatedAt: "2026-03-03" }]);
+		await mountSession({ storage, threadId: "thread-a", tools });
+
+		expect(createAiChatMock.mock.calls[0]?.[0]?.tools).toBe(tools);
 	});
 });
