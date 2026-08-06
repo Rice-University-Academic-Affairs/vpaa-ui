@@ -9,7 +9,7 @@
 		"dev": "vite dev",
 		"build": "vite build && npm run prepack",
 		"preview": "vite preview",
-		"prepare": "svelte-kit sync && svelte-package && publint",
+		"prepare": "svelte-kit sync && svelte-package",
 		"prepack": "svelte-kit sync && svelte-package && publint",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
@@ -51,13 +51,11 @@
 	},
 	"devDependencies": {
 		"@lucide/svelte": "^1.21.0",
-		"@tanstack/ai-openai": "^0.18.0",
 		"@sveltejs/adapter-auto": "^7.0.1",
 		"@sveltejs/kit": "^2.63.0",
 		"@sveltejs/package": "^2.5.8",
 		"@sveltejs/vite-plugin-svelte": "^7.1.2",
 		"@tailwindcss/vite": "^4.3.0",
-		"@tanstack/ai-openai": "^0.18.0",
 		"publint": "^0.3.21",
 		"svelte": "^5.56.1",
 		"svelte-check": "^4.6.0",

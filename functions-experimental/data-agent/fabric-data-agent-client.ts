@@ -1,4 +1,3 @@
-import OpenAI from "openai";
 import { randomUUID } from "node:crypto";
 import { acquireFabricToken } from "./acquire-fabric-token.ts";
 
@@ -19,6 +18,24 @@ type FabricThread = {
 	name?: string;
 };
 
+type Assistant = {
+	id: string;
+};
+
+type ThreadRun = {
+	id: string;
+	status: string;
+};
+
+type ThreadMessage = {
+	role: string;
+	content: Array<{ type: string; text?: { value: string } }>;
+};
+
+type ListResponse<T> = {
+	data: T[];
+};
+
 function sleep(ms: number) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -34,14 +51,14 @@ function privateAssistantBaseUrl(dataAgentUrl: string) {
 	return dataAgentUrl.replace(/\/openai\/?$/, "").replace("/aiassistant", "/__private/aiassistant");
 }
 
-function extractAssistantText(messages: OpenAI.Beta.Threads.Messages.Message[]): string {
+function extractAssistantText(messages: ThreadMessage[]): string {
 	const responses: string[] = [];
 
 	for (const message of messages) {
 		if (message.role !== "assistant") continue;
 
 		for (const block of message.content) {
-			if (block.type === "text") {
+			if (block.type === "text" && block.text?.value) {
 				responses.push(block.text.value);
 			}
 		}
@@ -66,24 +83,37 @@ export class FabricDataAgentClient {
 		this.config = config;
 	}
 
-	private async getOpenAIClient() {
-		const token = await acquireFabricToken(
-			this.config.tenantId,
-			this.config.clientId,
-			this.config.clientSecret
-		);
+	private apiUrl(path: string) {
+		const base = this.config.dataAgentUrl.replace(/\/$/, "");
+		return `${base}${path}?api-version=2024-05-01-preview`;
+	}
 
-		return new OpenAI({
-			apiKey: "",
-			baseURL: this.config.dataAgentUrl,
-			defaultQuery: { "api-version": "2024-05-01-preview" },
-			defaultHeaders: {
+	private async request<T>(
+		token: string,
+		path: string,
+		init: RequestInit = {}
+	): Promise<T> {
+		const response = await fetch(this.apiUrl(path), {
+			...init,
+			headers: {
 				Authorization: `Bearer ${token}`,
 				Accept: "application/json",
 				"Content-Type": "application/json",
-				ActivityId: randomUUID()
+				ActivityId: randomUUID(),
+				...init.headers
 			}
 		});
+
+		if (!response.ok) {
+			const detail = await response.text();
+			throw new Error(`Fabric data agent request failed (${response.status}): ${detail}`);
+		}
+
+		if (response.status === 204) {
+			return undefined as T;
+		}
+
+		return (await response.json()) as T;
 	}
 
 	private async getOrCreateThread(token: string, threadName?: string): Promise<FabricThread> {
@@ -120,19 +150,22 @@ export class FabricDataAgentClient {
 			this.config.clientId,
 			this.config.clientSecret
 		);
-		const client = await this.getOpenAIClient();
 
-		const assistant = await client.beta.assistants.create({ model: "not used" });
+		const assistant = await this.request<Assistant>(token, "/assistants", {
+			method: "POST",
+			body: JSON.stringify({ model: "not used" })
+		});
 		const thread = await this.getOrCreateThread(token, options.threadName);
 
 		try {
-			await client.beta.threads.messages.create(thread.id, {
-				role: "user",
-				content: trimmed
+			await this.request(token, `/threads/${thread.id}/messages`, {
+				method: "POST",
+				body: JSON.stringify({ role: "user", content: trimmed })
 			});
 
-			let run = await client.beta.threads.runs.create(thread.id, {
-				assistant_id: assistant.id
+			let run = await this.request<ThreadRun>(token, `/threads/${thread.id}/runs`, {
+				method: "POST",
+				body: JSON.stringify({ assistant_id: assistant.id })
 			});
 
 			const deadline = Date.now() + timeoutMs;
@@ -143,17 +176,22 @@ export class FabricDataAgentClient {
 				}
 
 				await sleep(2000);
-				run = await client.beta.threads.runs.retrieve(run.id, { thread_id: thread.id });
+				run = await this.request<ThreadRun>(token, `/threads/${thread.id}/runs/${run.id}`);
 			}
 
 			if (run.status !== "completed") {
 				throw new Error(`Data agent run failed with status: ${run.status}`);
 			}
 
-			const messages = await client.beta.threads.messages.list(thread.id, { order: "asc" });
+			const messages = await this.request<ListResponse<ThreadMessage>>(
+				token,
+				`/threads/${thread.id}/messages?order=asc`
+			);
 			return extractAssistantText(messages.data);
 		} finally {
-			await client.beta.threads.delete(thread.id).catch(() => undefined);
+			await this.request(token, `/threads/${thread.id}`, { method: "DELETE" }).catch(
+				() => undefined
+			);
 		}
 	}
 }

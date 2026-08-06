@@ -18,7 +18,7 @@ export async function* createMockChatStream(
 	const messageId = crypto.randomUUID();
 	const userText = lastUserText(messages as Array<{ role?: string; content?: unknown }>);
 	const response = userText
-		? `Thanks for your question about "${userText}". This is a demo response from the VPAA UI showcase. Add OPENAI_API_KEY to use a live model.`
+		? `Thanks for your question about "${userText}". This is a demo response from the VPAA UI showcase. Wire a live backend adapter to connect your data agent.`
 		: "Hello! I am the VPAA UI demo assistant. Ask me anything about your data or reports.";
 
 	yield {
