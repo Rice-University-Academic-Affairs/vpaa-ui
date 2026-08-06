@@ -27,6 +27,43 @@ export { default as AiChatInput } from "./components/ai-chat/AiChatInput.svelte"
 export { createAiChat } from "./ai-chat/create-ai-chat.svelte.js";
 export type { AiChatClient, CreateAiChatOptions } from "./ai-chat/create-ai-chat.svelte.js";
 
+export { createAiChatSession } from "./ai-chat/create-ai-chat-session.svelte.js";
+export type {
+	AiChatSession,
+	CreateAiChatSessionOptions
+} from "./ai-chat/create-ai-chat-session.svelte.js";
+
+export {
+	createMemoryThreadStorage,
+	type ChatThreadRecord,
+	type ChatThreadStorage,
+	type CreateChatThreadInput,
+	type UpdateChatThreadPatch
+} from "./ai-chat/storage.js";
+
+export { resolveAiChatTransport, type AiChatTransport, type ResolvedAiChatTransport } from "./ai-chat/transport.js";
+
+export { clientTools } from "./ai-chat/tools.js";
+export type { AnyClientTool } from "./ai-chat/tools.js";
+
+export {
+	localStoragePersistence,
+	sessionStoragePersistence,
+	indexedDBPersistence,
+	type ChatClientPersistence,
+	type ChatPersistenceOption,
+	type ChatPersistedState
+} from "@tanstack/ai-svelte";
+
+export {
+	defaultThreadPreview,
+	defaultThreadTitle,
+	firstUserMessageText,
+	lastAssistantMessageText,
+	messageText,
+	truncateText
+} from "./ai-chat/thread-metadata.js";
+
 export { dataTableFeatures } from "./components/data-table/table-features.js";
 export type { DataTableInstance } from "./components/data-table/table-types.js";
 

@@ -1,4 +1,5 @@
 import type { AiChatClient } from "$lib/ai-chat/create-ai-chat.svelte.js";
+import type { AiChatSession } from "$lib/ai-chat/create-ai-chat-session.svelte.js";
 
 export type AiChatThread = {
 	id: string;
@@ -9,6 +10,7 @@ export type AiChatThread = {
 
 export type AppShellChat = {
 	endpoint?: string;
+	session?: AiChatSession;
 	threads?: readonly AiChatThread[];
 	selectedThreadId?: string | null;
 	chat?: AiChatClient;

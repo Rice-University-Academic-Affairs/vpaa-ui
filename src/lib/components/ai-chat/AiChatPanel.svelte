@@ -29,13 +29,11 @@
 	);
 
 	function handleThreadSelect(threadId: string) {
-		chat.clear();
-		onThreadSelect?.(threadId);
+		void onThreadSelect?.(threadId);
 	}
 
 	function handleNewThread() {
-		chat.clear();
-		onNewThread?.();
+		void onNewThread?.();
 	}
 </script>
 

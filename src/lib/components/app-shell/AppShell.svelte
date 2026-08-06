@@ -25,12 +25,22 @@
 	let mobileNavOpen = $state(false);
 	let chatOpen = $state(false);
 
-	const ownsChat = !chat?.chat;
-	const chatClient = chat?.chat ?? createAiChat({ endpoint: chat?.endpoint ?? "/api/chat" });
+	const ownsChat = !chat?.chat && !chat?.session;
+	const chatClient =
+		chat?.session?.chat ?? chat?.chat ?? createAiChat({ endpoint: chat?.endpoint ?? "/api/chat" });
+	const threads = chat?.session?.threads ?? chat?.threads ?? [];
+	const selectedThreadId = chat?.session?.selectedThreadId ?? chat?.selectedThreadId ?? null;
+	const onThreadSelect =
+		chat?.session?.selectThread ?? chat?.onThreadSelect;
+	const onNewThread =
+		chat?.session?.createThread ?? chat?.onNewThread;
 
 	onDestroy(() => {
 		if (ownsChat) {
 			chatClient.stop();
+		}
+		if (chat?.session) {
+			chat.session.dispose();
 		}
 	});
 </script>
@@ -62,10 +72,10 @@
 		<AiChatPanel
 			bind:open={chatOpen}
 			chat={chatClient}
-			threads={chat.threads ?? []}
-			selectedThreadId={chat.selectedThreadId}
-			onThreadSelect={chat.onThreadSelect}
-			onNewThread={chat.onNewThread}
+			{threads}
+			{selectedThreadId}
+			{onThreadSelect}
+			{onNewThread}
 		/>
 	{/if}
 	<main class="overflow-y-auto" style="grid-area: content;">
