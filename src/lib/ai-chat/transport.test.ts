@@ -34,4 +34,12 @@ describe("resolveAiChatTransport", () => {
 		expect(resolved.connection).toBe(connection);
 		expect(resolved.forwardedProps).toEqual({ model: "demo" });
 	});
+
+	it("passes forwardedProps for endpoint object transports", () => {
+		const resolved = resolveAiChatTransport({
+			endpoint: "/api/chat",
+			forwardedProps: { model: "demo" }
+		});
+		expect(resolved.forwardedProps).toEqual({ model: "demo" });
+	});
 });

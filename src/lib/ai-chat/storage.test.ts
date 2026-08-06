@@ -71,6 +71,11 @@ describe("createMemoryChatStorage", () => {
 		expect(await storage.getThread(thread.id)).not.toBeNull();
 	});
 
+	it("returns null for unknown threads", async () => {
+		const storage = createMemoryChatStorage();
+		expect(await storage.getThread("missing")).toBeNull();
+	});
+
 	it("deletes thread metadata and message state together", async () => {
 		const storage = createMemoryChatStorage();
 		const thread = await storage.createThread({ title: "Chat" });
@@ -125,6 +130,22 @@ describe("createLocalChatStorage", () => {
 
 		expect(await storage.listThreads()).toEqual([
 			{ id: "seed", title: "Seed thread", updatedAt: "2026-03-01" }
+		]);
+	});
+
+	it("does not overwrite existing local storage when initialThreads is provided", async () => {
+		store.set(
+			"test:threads",
+			JSON.stringify([{ id: "existing", title: "Existing", updatedAt: "2026-03-10" }])
+		);
+
+		const storage = createLocalChatStorage({
+			keyPrefix: "test:",
+			initialThreads: [{ id: "seed", title: "Seed", updatedAt: "2026-01-01" }]
+		});
+
+		expect(await storage.listThreads()).toEqual([
+			{ id: "existing", title: "Existing", updatedAt: "2026-03-10" }
 		]);
 	});
 
