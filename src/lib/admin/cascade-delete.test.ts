@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { MemoryAdminData } from "./memory-admin-data.js";
-import type { AdminData, AdminDeleteImpact } from "./types.js";
+import type { AdminData, AdminDeleteImpact, AdminRecord } from "./types.js";
 import { cascadeFixtureResources } from "./test/cascade-fixtures.js";
 
 function createCascadeData(): AdminData {
@@ -316,5 +316,100 @@ describe("cascade delete inspectRemove / remove (unit)", () => {
 		expect(await data.get("DiamondLeaf", "leaf-1")).toBeNull();
 		expect(await data.get("DiamondLeft", "left-1")).toBeNull();
 		expect(await data.get("DiamondRight", "right-1")).toBeNull();
+	});
+
+	it("CD19 deleting one diamond parent blocks when leaf is shared with the other", async () => {
+		await data.create("DiamondRoot", { id: "root-1", name: "R" });
+		await data.create("DiamondLeft", { id: "left-1", rootId: "root-1" });
+		await data.create("DiamondRight", { id: "right-1", rootId: "root-1" });
+		await data.create("DiamondLeaf", { id: "leaf-1", leftId: "left-1", rightId: "right-1" });
+		const impact = await data.inspectRemove("DiamondLeft", "left-1");
+		expect(impact.canDelete).toBe(false);
+		expect(impact.blocking.some((bucket) => bucket.reason === "shared")).toBe(true);
+		await expect(data.remove("DiamondLeft", "left-1")).rejects.toMatchObject({ kind: "conflict" });
+		expect(await data.get("DiamondLeaf", "leaf-1")).not.toBeNull();
+		expect(await data.get("DiamondLeft", "left-1")).not.toBeNull();
+		expect(await data.get("DiamondRight", "right-1")).not.toBeNull();
+	});
+});
+
+describe("cascade delete TOCTOU guards", () => {
+	it("CD20 remove aborts if exclusive child becomes shared after inspect", async () => {
+		const { computeDeleteImpact, performCascadeRemove } = await import("./cascade-delete.js");
+		const resources = cascadeFixtureResources;
+		const faculty = new Map<string, AdminRecord>([
+			["fac-1", { id: "fac-1", name: "Ada" }],
+			["fac-2", { id: "fac-2", name: "Grace" }]
+		]);
+		const credits = new Map<string, AdminRecord>([
+			["sc-1", { id: "sc-1", facultyId: "fac-1", sharedWithFacultyId: null, year: 2024 }]
+		]);
+		let mutateOnRead = false;
+		const store = {
+			get: async (resource: string, id: string) => {
+				const bucket = resource === "Faculty" ? faculty : credits;
+				const row = bucket.get(id);
+				return row ? { ...row } : null;
+			},
+			listAll: async (resource: string) => {
+				if (resource === "SabbaticalCredit" && mutateOnRead) {
+					credits.set("sc-1", {
+						id: "sc-1",
+						facultyId: "fac-1",
+						sharedWithFacultyId: "fac-2",
+						year: 2024
+					});
+				}
+				const bucket =
+					resource === "Faculty" ? faculty : resource === "SabbaticalCredit" ? credits : new Map();
+				return [...bucket.values()].map((row) => ({ ...row }));
+			},
+			deleteOne: async (resource: string, id: string) => {
+				const bucket = resource === "Faculty" ? faculty : credits;
+				bucket.delete(id);
+			}
+		};
+		const impact = await computeDeleteImpact(resources, store, "Faculty", "fac-1");
+		expect(impact.canDelete).toBe(true);
+		mutateOnRead = true;
+		await expect(performCascadeRemove(resources, store, "Faculty", "fac-1")).rejects.toMatchObject({
+			kind: "conflict"
+		});
+		expect(faculty.has("fac-1")).toBe(true);
+		expect(credits.has("sc-1")).toBe(true);
+	});
+
+	it("CD21 remove aborts if restrict child appears after inspect", async () => {
+		const { computeDeleteImpact, performCascadeRemove } = await import("./cascade-delete.js");
+		const resources = cascadeFixtureResources;
+		const faculty = new Map<string, AdminRecord>([["fac-1", { id: "fac-1", name: "Ada" }]]);
+		const grants = new Map<string, AdminRecord>();
+		let mutateOnRead = false;
+		const store = {
+			get: async (resource: string, id: string) => {
+				if (resource === "Faculty") return faculty.get(id) ? { ...faculty.get(id)! } : null;
+				if (resource === "ResearchGrant") return grants.get(id) ? { ...grants.get(id)! } : null;
+				return null;
+			},
+			listAll: async (resource: string) => {
+				if (resource === "ResearchGrant" && mutateOnRead) {
+					grants.set("rg-1", { id: "rg-1", facultyId: "fac-1", title: "Late" });
+				}
+				if (resource === "ResearchGrant") return [...grants.values()].map((row) => ({ ...row }));
+				if (resource === "SabbaticalCredit") return [];
+				return [];
+			},
+			deleteOne: async (resource: string, id: string) => {
+				if (resource === "Faculty") faculty.delete(id);
+				if (resource === "ResearchGrant") grants.delete(id);
+			}
+		};
+		const impact = await computeDeleteImpact(resources, store, "Faculty", "fac-1");
+		expect(impact.canDelete).toBe(true);
+		mutateOnRead = true;
+		await expect(performCascadeRemove(resources, store, "Faculty", "fac-1")).rejects.toMatchObject({
+			kind: "conflict"
+		});
+		expect(faculty.has("fac-1")).toBe(true);
 	});
 });

@@ -10,27 +10,43 @@ import { humanizeName, pluralizeLabel } from "./conventions.js";
 
 const SAMPLE_CAP = 5;
 
-export function siblingForeignKeys(
-	parentChildren: readonly AdminChildRelation[],
-	childResource: string,
-	ownerForeignKey: string
-): string[] {
-	return parentChildren
-		.filter((child) => child.childResource === childResource && child.foreignKey !== ownerForeignKey)
-		.map((child) => child.foreignKey);
+export type InboundChildEdge = {
+	parentResource: string;
+	foreignKey: string;
+	policy: AdminChildRelation["policy"];
+};
+
+export function inboundChildEdges(
+	resources: AdminResources,
+	childResource: string
+): InboundChildEdge[] {
+	const edges: InboundChildEdge[] = [];
+	for (const parent of Object.values(resources)) {
+		for (const child of parent.children ?? []) {
+			if (child.childResource !== childResource) continue;
+			edges.push({
+				parentResource: parent.name,
+				foreignKey: child.foreignKey,
+				policy: child.policy
+			});
+		}
+	}
+	return edges;
 }
 
 export function isSharedChildRecord(
 	record: AdminRecord,
 	ownerForeignKey: string,
 	parentId: string,
-	siblingKeys: readonly string[]
+	inbound: readonly InboundChildEdge[],
+	doomed: ReadonlySet<string>
 ): boolean {
-	for (const key of siblingKeys) {
-		if (key === ownerForeignKey || key === "id") continue;
-		const value = record[key];
+	for (const edge of inbound) {
+		if (edge.foreignKey === ownerForeignKey) continue;
+		const value = record[edge.foreignKey];
 		if (value == null || value === "") continue;
 		if (String(value) === String(parentId)) continue;
+		if (doomed.has(`${edge.parentResource}:${String(value)}`)) continue;
 		return true;
 	}
 	return false;
@@ -84,17 +100,71 @@ function mergeBuckets(buckets: DeleteChildBucket[]): DeleteChildBucket[] {
 	return [...byKey.values()];
 }
 
-function willCascadeDeleteRow(
+function sameParentSiblingKeys(
 	parentChildren: readonly AdminChildRelation[],
 	childResource: string,
+	ownerForeignKey: string
+): string[] {
+	return parentChildren
+		.filter((child) => child.childResource === childResource && child.foreignKey !== ownerForeignKey)
+		.map((child) => child.foreignKey);
+}
+
+function isSharedBySameParentSiblings(
+	record: AdminRecord,
+	ownerForeignKey: string,
 	parentId: string,
-	row: AdminRecord
+	siblingKeys: readonly string[]
 ): boolean {
+	for (const key of siblingKeys) {
+		const value = record[key];
+		if (value == null || value === "") continue;
+		if (String(value) === String(parentId)) continue;
+		return true;
+	}
+	return false;
+}
+
+async function markCascadeClosure(
+	resources: AdminResources,
+	store: CascadeStore,
+	resource: string,
+	id: string,
+	doomed: Set<string>
+): Promise<void> {
+	const key = `${resource}:${id}`;
+	if (doomed.has(key)) return;
+	doomed.add(key);
+
+	const parentChildren = childrenOf(resources, resource);
+	for (const relation of parentChildren) {
+		if (relation.policy !== "cascade") continue;
+		const siblings = sameParentSiblingKeys(parentChildren, relation.childResource, relation.foreignKey);
+		const rows = matchChildren(
+			await store.listAll(relation.childResource),
+			relation.foreignKey,
+			id
+		).filter((row) => !isSharedBySameParentSiblings(row, relation.foreignKey, id, siblings));
+		for (const row of rows) {
+			await markCascadeClosure(resources, store, relation.childResource, String(row.id), doomed);
+		}
+	}
+}
+
+function willCascadeDeleteRow(
+	resources: AdminResources,
+	parentResource: string,
+	parentId: string,
+	childResource: string,
+	row: AdminRecord,
+	doomed: ReadonlySet<string>
+): boolean {
+	const parentChildren = childrenOf(resources, parentResource);
 	for (const relation of parentChildren) {
 		if (relation.childResource !== childResource || relation.policy !== "cascade") continue;
 		if (String(row[relation.foreignKey] ?? "") !== String(parentId)) continue;
-		const siblings = siblingForeignKeys(parentChildren, childResource, relation.foreignKey);
-		if (!isSharedChildRecord(row, relation.foreignKey, parentId, siblings)) return true;
+		const inbound = inboundChildEdges(resources, childResource);
+		if (!isSharedChildRecord(row, relation.foreignKey, parentId, inbound, doomed)) return true;
 	}
 	return false;
 }
@@ -104,6 +174,7 @@ async function collectImpactDeep(
 	store: CascadeStore,
 	resource: string,
 	id: string,
+	doomed: ReadonlySet<string>,
 	seen: Set<string>
 ): Promise<{ blocking: DeleteChildBucket[]; cascading: DeleteChildBucket[] }> {
 	const key = `${resource}:${id}`;
@@ -120,19 +191,19 @@ async function collectImpactDeep(
 
 		if (relation.policy === "restrict") {
 			const blockingRows = rows.filter(
-				(row) => !willCascadeDeleteRow(parentChildren, relation.childResource, id, row)
+				(row) => !willCascadeDeleteRow(resources, resource, id, relation.childResource, row, doomed)
 			);
 			if (blockingRows.length > 0) blocking.push(toBucket(relation, blockingRows));
 			continue;
 		}
 
-		const siblings = siblingForeignKeys(parentChildren, relation.childResource, relation.foreignKey);
+		const inbound = inboundChildEdges(resources, relation.childResource);
 		const shared = rows.filter((row) =>
-			isSharedChildRecord(row, relation.foreignKey, id, siblings)
+			isSharedChildRecord(row, relation.foreignKey, id, inbound, doomed)
 		);
 		const exclusive = rows.filter(
 			(row) =>
-				!isSharedChildRecord(row, relation.foreignKey, id, siblings) &&
+				!isSharedChildRecord(row, relation.foreignKey, id, inbound, doomed) &&
 				!seen.has(`${relation.childResource}:${String(row.id)}`)
 		);
 
@@ -147,6 +218,7 @@ async function collectImpactDeep(
 					store,
 					relation.childResource,
 					String(child.id),
+					doomed,
 					seen
 				);
 				blocking.push(...nested.blocking);
@@ -172,7 +244,9 @@ export async function computeDeleteImpact(
 		throw new AdminError("not_found", `Record ${id} not found`);
 	}
 
-	const collected = await collectImpactDeep(resources, store, resource, id, new Set());
+	const doomed = new Set<string>();
+	await markCascadeClosure(resources, store, resource, id, doomed);
+	const collected = await collectImpactDeep(resources, store, resource, id, doomed, new Set());
 	const blocking = mergeBuckets(collected.blocking);
 	const cascading = mergeBuckets(collected.cascading);
 	return {
@@ -203,7 +277,13 @@ export async function performCascadeRemove(
 	if (!impact.canDelete) {
 		throw new AdminError("conflict", formatDeleteConflictMessage(impact), { status: 409 });
 	}
-	await deleteTree(resources, store, resource, id, new Set());
+	const doomed = new Set<string>();
+	await markCascadeClosure(resources, store, resource, id, doomed);
+	const confirm = await computeDeleteImpact(resources, store, resource, id);
+	if (!confirm.canDelete) {
+		throw new AdminError("conflict", formatDeleteConflictMessage(confirm), { status: 409 });
+	}
+	await deleteTree(resources, store, resource, id, new Set(), doomed);
 }
 
 async function deleteTree(
@@ -211,25 +291,62 @@ async function deleteTree(
 	store: CascadeStore,
 	resource: string,
 	id: string,
-	deleted: Set<string>
+	deleted: Set<string>,
+	doomed: ReadonlySet<string>
 ): Promise<void> {
 	const key = `${resource}:${id}`;
 	if (deleted.has(key)) return;
-	deleted.add(key);
+
+	const existing = await store.get(resource, id);
+	if (!existing) return;
 
 	const parentChildren = childrenOf(resources, resource);
 	for (const relation of parentChildren) {
-		if (relation.policy !== "cascade") continue;
-		const siblings = siblingForeignKeys(parentChildren, relation.childResource, relation.foreignKey);
-		const rows = matchChildren(
-			await store.listAll(relation.childResource),
-			relation.foreignKey,
-			id
-		).filter((row) => !isSharedChildRecord(row, relation.foreignKey, id, siblings));
+		const rows = matchChildren(await store.listAll(relation.childResource), relation.foreignKey, id);
+		if (rows.length === 0) continue;
+
+		if (relation.policy === "restrict") {
+			const blockingRows = rows.filter(
+				(row) => !willCascadeDeleteRow(resources, resource, id, relation.childResource, row, doomed)
+			);
+			if (blockingRows.length > 0) {
+				throw new AdminError(
+					"conflict",
+					formatDeleteConflictMessage({
+						resource,
+						id,
+						blocking: [toBucket(relation, blockingRows)],
+						cascading: [],
+						canDelete: false
+					}),
+					{ status: 409 }
+				);
+			}
+			continue;
+		}
+
+		const inbound = inboundChildEdges(resources, relation.childResource);
+		const shared = rows.filter((row) =>
+			isSharedChildRecord(row, relation.foreignKey, id, inbound, doomed)
+		);
+		if (shared.length > 0) {
+			throw new AdminError(
+				"conflict",
+				formatDeleteConflictMessage({
+					resource,
+					id,
+					blocking: [toBucket(relation, shared, "shared")],
+					cascading: [],
+					canDelete: false
+				}),
+				{ status: 409 }
+			);
+		}
 		for (const row of rows) {
-			await deleteTree(resources, store, relation.childResource, String(row.id), deleted);
+			await deleteTree(resources, store, relation.childResource, String(row.id), deleted, doomed);
 		}
 	}
 
+	deleted.add(key);
 	await store.deleteOne(resource, id);
 }

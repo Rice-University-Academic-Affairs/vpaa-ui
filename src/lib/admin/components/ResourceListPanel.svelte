@@ -4,6 +4,7 @@
 	import { getAdminContext } from "$lib/admin/context.js";
 	import { ADMIN_PAGE_SIZE, defaultSort } from "$lib/admin/conventions.js";
 	import { mapAdminError } from "$lib/admin/errors.js";
+	import { advanceListPage } from "$lib/admin/list-paging.js";
 	import AdminErrorView from "$lib/admin/components/AdminError.svelte";
 	import ResourceTable from "$lib/admin/components/ResourceTable.svelte";
 	import { Badge } from "$lib/components/ui/badge/index.js";
@@ -138,11 +139,15 @@
 			hasNext={result.hasNextPage}
 			{onPrev}
 			onNext={() => {
-				if (!result.hasNextPage) return;
-				if (result.endCursor && cursorStack.length === pageIndex + 1) {
-					cursorStack = [...cursorStack, result.endCursor];
-				}
-				pageIndex += 1;
+				const next = advanceListPage({
+					pageIndex,
+					cursorStack,
+					hasNextPage: result.hasNextPage,
+					endCursor: result.endCursor
+				});
+				if (!next) return;
+				cursorStack = next.cursorStack;
+				pageIndex = next.pageIndex;
 			}}
 			loading={false}
 		/>

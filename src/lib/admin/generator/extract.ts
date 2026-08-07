@@ -70,7 +70,13 @@ export function extractResources(options: GenerateOptions): AdminResources {
 			const childName = childMeta.name || childClass.name;
 			if (!resources[childName]) continue;
 			const foreignKey = findForeignKeyField(childMeta, parentName);
-			if (!foreignKey) continue;
+			if (!foreignKey) {
+				throw new GeneratorError(
+					`Cannot resolve foreign key for @many ${parentName}.${fieldName} → ${childName}`,
+					parentName,
+					fieldName
+				);
+			}
 			children.push({
 				childResource: childName,
 				foreignKey,
@@ -92,7 +98,13 @@ export function extractResources(options: GenerateOptions): AdminResources {
 				const targetName = targetMeta.name || target.name;
 				if (targetName !== parentName) continue;
 				const foreignKey = findForeignKeyField(otherMeta, parentName, relationFieldName);
-				if (!foreignKey) continue;
+				if (!foreignKey) {
+					throw new GeneratorError(
+						`Cannot resolve foreign key for @one ${otherName}.${relationFieldName} → ${parentName}`,
+						otherName,
+						relationFieldName
+					);
+				}
 				if (
 					children.some(
 						(child) => child.childResource === otherName && child.foreignKey === foreignKey

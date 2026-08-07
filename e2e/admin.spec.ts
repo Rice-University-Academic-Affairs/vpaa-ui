@@ -146,6 +146,20 @@ test.describe("Admin application E2E", () => {
 		expect(namesDesc[namesDesc.length - 1]?.trim()).toBe("Product 006");
 	});
 
+	test("P-E2E double Next does not skip a page", async ({ page }) => {
+		await page.getByRole("link", { name: "Products", exact: true }).click();
+		await expect(page.locator("tbody tr")).toHaveCount(25);
+		const page1First = await page.locator("tbody tr").first().locator("td").first().textContent();
+		await page.getByRole("button", { name: "Next" }).dblclick();
+		await expect(page.locator("tbody tr")).toHaveCount(5);
+		const page2First = await page.locator("tbody tr").first().locator("td").first().textContent();
+		expect(page2First).not.toBe(page1First);
+		await expect(page.getByRole("button", { name: "Next" })).toBeDisabled();
+		await page.getByRole("button", { name: "Previous" }).click();
+		await expect(page.locator("tbody tr")).toHaveCount(25);
+		await expect(page.locator("tbody tr").first().locator("td").first()).toHaveText(page1First ?? "");
+	});
+
 	test("E2E10-E2E13 create, edit, validation, delete", async ({ page }) => {
 		await page.getByRole("link", { name: "Products", exact: true }).click();
 		await page.getByRole("link", { name: "New" }).click();

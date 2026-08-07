@@ -3,7 +3,7 @@ import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { entity } from "@microsoft/rayfin-core";
+import { entity, many, uuid } from "@microsoft/rayfin-core";
 import { AdminUser } from "../rayfin/data/AdminUser.js";
 import { FacultyAward } from "../rayfin/data/FacultyAward.js";
 import { Product } from "../rayfin/data/Product.js";
@@ -125,6 +125,25 @@ describe("admin generator", () => {
 		assert.ok(!resources.Faculty!.fields.some((f) => f.name === "sabbaticalCredits"));
 		assert.ok(resources.SabbaticalCredit!.fields.some((f) => f.name === "facultyId"));
 		assert.ok(resources.SabbaticalCredit!.fields.some((f) => f.name === "sharedWithFacultyId"));
+	});
+
+	it("fails when @many target has no resolvable foreign key (G11)", async () => {
+		@entity()
+		class OrphanChild {
+			@uuid()
+			id!: string;
+		}
+		@entity()
+		class ParentWithMany {
+			@uuid()
+			id!: string;
+			@many(() => OrphanChild as never)
+			kids!: InstanceType<typeof OrphanChild>[];
+		}
+		assert.throws(
+			() => extractResources({ entities: [ParentWithMany as never, OrphanChild as never] }),
+			(err: unknown) => err instanceof GeneratorError && /foreign key/i.test(String(err))
+		);
 	});
 
 	it("checkAdminResources rejects stale filesystem output (G9, S1)", async () => {
