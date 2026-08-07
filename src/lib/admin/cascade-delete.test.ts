@@ -260,4 +260,61 @@ describe("cascade delete inspectRemove / remove (unit)", () => {
 		await data.remove("ResearchGrant", "rg-1");
 		expect(await data.get("ResearchGrant", "rg-1")).toBeNull();
 	});
+
+	it("CD16 mentor-only faculty is blocked by sharedWithFacultyId restrict edge", async () => {
+		await data.create("Faculty", { id: "fac-owner", name: "Ada" });
+		await data.create("Faculty", { id: "fac-mentor", name: "Grace" });
+		await data.create("SabbaticalCredit", {
+			id: "sc-mentored",
+			facultyId: "fac-owner",
+			sharedWithFacultyId: "fac-mentor",
+			year: 2026
+		});
+		const impact = await data.inspectRemove("Faculty", "fac-mentor");
+		expect(impact.canDelete).toBe(false);
+		expect(impact.blocking).toEqual([
+			{
+				resource: "SabbaticalCredit",
+				foreignKey: "sharedWithFacultyId",
+				policy: "restrict",
+				count: 1,
+				sampleIds: ["sc-mentored"]
+			}
+		]);
+		await expect(data.remove("Faculty", "fac-mentor")).rejects.toMatchObject({ kind: "conflict" });
+		expect(await data.get("SabbaticalCredit", "sc-mentored")).not.toBeNull();
+		expect(await data.get("Faculty", "fac-mentor")).not.toBeNull();
+	});
+
+	it("CD17 unrelated userId does not mark exclusive cascade child as shared", async () => {
+		await data.create("Faculty", { id: "fac-1", name: "Ada" });
+		await data.create("SabbaticalCredit", {
+			id: "sc-user",
+			facultyId: "fac-1",
+			sharedWithFacultyId: null,
+			userId: "user-other",
+			year: 2024
+		});
+		const impact = await data.inspectRemove("Faculty", "fac-1");
+		expect(impact.canDelete).toBe(true);
+		expect(impact.blocking).toEqual([]);
+		expect(impact.cascading[0]?.count).toBe(1);
+		await data.remove("Faculty", "fac-1");
+		expect(await data.get("SabbaticalCredit", "sc-user")).toBeNull();
+	});
+
+	it("CD18 diamond cascade counts each leaf once", async () => {
+		await data.create("DiamondRoot", { id: "root-1", name: "R" });
+		await data.create("DiamondLeft", { id: "left-1", rootId: "root-1" });
+		await data.create("DiamondRight", { id: "right-1", rootId: "root-1" });
+		await data.create("DiamondLeaf", { id: "leaf-1", leftId: "left-1", rightId: "right-1" });
+		const impact = await data.inspectRemove("DiamondRoot", "root-1");
+		expect(impact.canDelete).toBe(true);
+		const leafBuckets = impact.cascading.filter((bucket) => bucket.resource === "DiamondLeaf");
+		expect(leafBuckets.reduce((sum, bucket) => sum + bucket.count, 0)).toBe(1);
+		await data.remove("DiamondRoot", "root-1");
+		expect(await data.get("DiamondLeaf", "leaf-1")).toBeNull();
+		expect(await data.get("DiamondLeft", "left-1")).toBeNull();
+		expect(await data.get("DiamondRight", "right-1")).toBeNull();
+	});
 });

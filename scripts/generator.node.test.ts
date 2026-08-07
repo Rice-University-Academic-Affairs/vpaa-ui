@@ -115,6 +115,11 @@ describe("admin generator", () => {
 				foreignKey: "facultyId",
 				policy: "cascade",
 				parentField: "sabbaticalCredits"
+			},
+			{
+				childResource: "SabbaticalCredit",
+				foreignKey: "sharedWithFacultyId",
+				policy: "restrict"
 			}
 		]);
 		assert.ok(!resources.Faculty!.fields.some((f) => f.name === "sabbaticalCredits"));

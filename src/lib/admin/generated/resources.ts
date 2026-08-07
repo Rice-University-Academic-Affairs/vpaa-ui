@@ -80,6 +80,11 @@ export const adminResources = {
 			foreignKey: "facultyId",
 			policy: "cascade",
 			parentField: "sabbaticalCredits"
+		},
+		{
+			childResource: "SabbaticalCredit",
+			foreignKey: "sharedWithFacultyId",
+			policy: "restrict"
 		}
 		]
 	},

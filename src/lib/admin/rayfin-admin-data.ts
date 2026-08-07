@@ -147,7 +147,9 @@ export class RayfinAdminData implements AdminData {
 				for (;;) {
 					const page = await this.list(resource, { limit: 200, cursor });
 					items.push(...page.items);
+					if (page.items.length === 0) break;
 					if (!page.hasNextPage || !page.endCursor) break;
+					if (page.endCursor === cursor) break;
 					cursor = page.endCursor;
 				}
 				return items;

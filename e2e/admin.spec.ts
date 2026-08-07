@@ -496,4 +496,36 @@ test.describe("Admin application E2E", () => {
 		await page.goto(creditUrl);
 		await expect(page.locator("#field-year")).toHaveValue("2023");
 	});
+
+	test("CD-E2E mentor-only faculty cannot delete while credits reference them", async ({ page }) => {
+		await page.getByRole("link", { name: "Faculties", exact: true }).click();
+		await page.getByRole("link", { name: "New" }).click();
+		await page.locator("#field-name").fill("Credit Owner");
+		await page.getByRole("button", { name: "Create" }).click();
+		await expect(page).toHaveURL(/\/admin\/faculties\/(?!new$)[^/]+$/);
+		const ownerId = page.url().split("/").pop()!;
+
+		await page.goto("/admin/faculties/new");
+		await page.locator("#field-name").fill("Credit Mentor");
+		await page.getByRole("button", { name: "Create" }).click();
+		await expect(page).toHaveURL(/\/admin\/faculties\/(?!new$)[^/]+$/);
+		const mentorUrl = page.url();
+		const mentorId = mentorUrl.split("/").pop()!;
+
+		await page.goto("/admin/sabbatical-credits/new");
+		await page.locator("#field-facultyId").fill(ownerId);
+		await page.locator("#field-sharedWithFacultyId").fill(mentorId);
+		await page.locator("#field-year").fill("2027");
+		await page.getByRole("button", { name: "Create" }).click();
+		await expect(page).toHaveURL(/\/admin\/sabbatical-credits\/(?!new$)[^/]+$/);
+
+		await page.goto(mentorUrl);
+		await expect(page.locator("#field-name")).toHaveValue("Credit Mentor");
+		await page.getByRole("button", { name: "Delete", exact: true }).click();
+		await expect(page.getByRole("dialog")).toContainText("Cannot delete");
+		await expect(page.getByRole("dialog")).toContainText("Sabbatical Credits");
+		await expect(page.getByRole("dialog").getByRole("button", { name: "Delete" })).toHaveCount(0);
+		await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+		await expect(page.locator("#field-name")).toHaveValue("Credit Mentor");
+	});
 });

@@ -10,19 +10,25 @@ import { humanizeName, pluralizeLabel } from "./conventions.js";
 
 const SAMPLE_CAP = 5;
 
-export function isLikelyForeignKeyField(fieldName: string): boolean {
-	if (fieldName === "id") return false;
-	return /Id$|_id$/.test(fieldName);
+export function siblingForeignKeys(
+	parentChildren: readonly AdminChildRelation[],
+	childResource: string,
+	ownerForeignKey: string
+): string[] {
+	return parentChildren
+		.filter((child) => child.childResource === childResource && child.foreignKey !== ownerForeignKey)
+		.map((child) => child.foreignKey);
 }
 
 export function isSharedChildRecord(
 	record: AdminRecord,
 	ownerForeignKey: string,
-	parentId: string
+	parentId: string,
+	siblingKeys: readonly string[]
 ): boolean {
-	for (const [key, value] of Object.entries(record)) {
+	for (const key of siblingKeys) {
 		if (key === ownerForeignKey || key === "id") continue;
-		if (!isLikelyForeignKeyField(key)) continue;
+		const value = record[key];
 		if (value == null || value === "") continue;
 		if (String(value) === String(parentId)) continue;
 		return true;
@@ -78,6 +84,21 @@ function mergeBuckets(buckets: DeleteChildBucket[]): DeleteChildBucket[] {
 	return [...byKey.values()];
 }
 
+function willCascadeDeleteRow(
+	parentChildren: readonly AdminChildRelation[],
+	childResource: string,
+	parentId: string,
+	row: AdminRecord
+): boolean {
+	for (const relation of parentChildren) {
+		if (relation.childResource !== childResource || relation.policy !== "cascade") continue;
+		if (String(row[relation.foreignKey] ?? "") !== String(parentId)) continue;
+		const siblings = siblingForeignKeys(parentChildren, childResource, relation.foreignKey);
+		if (!isSharedChildRecord(row, relation.foreignKey, parentId, siblings)) return true;
+	}
+	return false;
+}
+
 async function collectImpactDeep(
 	resources: AdminResources,
 	store: CascadeStore,
@@ -91,18 +112,29 @@ async function collectImpactDeep(
 
 	const blocking: DeleteChildBucket[] = [];
 	const cascading: DeleteChildBucket[] = [];
+	const parentChildren = childrenOf(resources, resource);
 
-	for (const relation of childrenOf(resources, resource)) {
+	for (const relation of parentChildren) {
 		const rows = matchChildren(await store.listAll(relation.childResource), relation.foreignKey, id);
 		if (rows.length === 0) continue;
 
 		if (relation.policy === "restrict") {
-			blocking.push(toBucket(relation, rows));
+			const blockingRows = rows.filter(
+				(row) => !willCascadeDeleteRow(parentChildren, relation.childResource, id, row)
+			);
+			if (blockingRows.length > 0) blocking.push(toBucket(relation, blockingRows));
 			continue;
 		}
 
-		const shared = rows.filter((row) => isSharedChildRecord(row, relation.foreignKey, id));
-		const exclusive = rows.filter((row) => !isSharedChildRecord(row, relation.foreignKey, id));
+		const siblings = siblingForeignKeys(parentChildren, relation.childResource, relation.foreignKey);
+		const shared = rows.filter((row) =>
+			isSharedChildRecord(row, relation.foreignKey, id, siblings)
+		);
+		const exclusive = rows.filter(
+			(row) =>
+				!isSharedChildRecord(row, relation.foreignKey, id, siblings) &&
+				!seen.has(`${relation.childResource}:${String(row.id)}`)
+		);
 
 		if (shared.length > 0) {
 			blocking.push(toBucket(relation, shared, "shared"));
@@ -185,13 +217,15 @@ async function deleteTree(
 	if (deleted.has(key)) return;
 	deleted.add(key);
 
-	for (const relation of childrenOf(resources, resource)) {
+	const parentChildren = childrenOf(resources, resource);
+	for (const relation of parentChildren) {
 		if (relation.policy !== "cascade") continue;
+		const siblings = siblingForeignKeys(parentChildren, relation.childResource, relation.foreignKey);
 		const rows = matchChildren(
 			await store.listAll(relation.childResource),
 			relation.foreignKey,
 			id
-		).filter((row) => !isSharedChildRecord(row, relation.foreignKey, id));
+		).filter((row) => !isSharedChildRecord(row, relation.foreignKey, id, siblings));
 		for (const row of rows) {
 			await deleteTree(resources, store, relation.childResource, String(row.id), deleted);
 		}

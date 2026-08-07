@@ -83,7 +83,7 @@ export function extractResources(options: GenerateOptions): AdminResources {
 			const otherMeta = getEntityMetadata(other);
 			const otherName = otherMeta.name || other.name;
 			if (otherName === parentName || !resources[otherName]) continue;
-			for (const [, fieldMeta] of Object.entries(otherMeta.fields)) {
+			for (const [relationFieldName, fieldMeta] of Object.entries(otherMeta.fields)) {
 				if (!fieldMeta.relationship || fieldMeta.relationship.type !== RelationshipTypes.one) {
 					continue;
 				}
@@ -91,16 +91,13 @@ export function extractResources(options: GenerateOptions): AdminResources {
 				const targetMeta = getEntityMetadata(target);
 				const targetName = targetMeta.name || target.name;
 				if (targetName !== parentName) continue;
-				const foreignKey = findForeignKeyField(otherMeta, parentName);
+				const foreignKey = findForeignKeyField(otherMeta, parentName, relationFieldName);
 				if (!foreignKey) continue;
 				if (
 					children.some(
 						(child) => child.childResource === otherName && child.foreignKey === foreignKey
 					)
 				) {
-					continue;
-				}
-				if (children.some((child) => child.childResource === otherName && child.policy === "cascade")) {
 					continue;
 				}
 				children.push({
@@ -124,8 +121,15 @@ export function extractResources(options: GenerateOptions): AdminResources {
 
 function findForeignKeyField(
 	childMeta: ReturnType<typeof getEntityMetadata>,
-	parentName: string
+	parentName: string,
+	relationFieldName?: string
 ): string | null {
+	if (relationFieldName) {
+		const fromRelation = `${relationFieldName}Id`;
+		if (childMeta.fields[fromRelation] && !childMeta.fields[fromRelation]?.relationship) {
+			return fromRelation;
+		}
+	}
 	const expected = `${parentName.charAt(0).toLowerCase()}${parentName.slice(1)}Id`;
 	if (childMeta.fields[expected] && !childMeta.fields[expected]?.relationship) {
 		return expected;
