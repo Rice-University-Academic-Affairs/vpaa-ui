@@ -2,11 +2,17 @@ import {
 	FieldFormat,
 	getEntityMetadata,
 	isRayfinEntity,
+	RelationshipTypes,
 	type EntityClass,
 	type FieldMetadata
 } from "@microsoft/rayfin-core";
 import { isSystemReadOnlyName, resourceSlug } from "../conventions.js";
-import type { AdminField, AdminFieldType, AdminResources } from "../types.js";
+import type {
+	AdminChildRelation,
+	AdminField,
+	AdminFieldType,
+	AdminResources
+} from "../types.js";
 
 export type GenerateOptions = {
 	entities: readonly EntityClass[];
@@ -45,11 +51,90 @@ export function extractResources(options: GenerateOptions): AdminResources {
 		resources[name] = {
 			name,
 			slug: resourceSlug(name),
-			fields
+			fields,
+			children: []
+		};
+	}
+
+	for (const entity of options.entities) {
+		const meta = getEntityMetadata(entity);
+		const parentName = meta.name || entity.name;
+		const children: AdminChildRelation[] = [];
+
+		for (const [fieldName, fieldMeta] of Object.entries(meta.fields)) {
+			if (!fieldMeta.relationship || fieldMeta.relationship.type !== RelationshipTypes.many) {
+				continue;
+			}
+			const childClass = fieldMeta.relationship.target() as EntityClass;
+			const childMeta = getEntityMetadata(childClass);
+			const childName = childMeta.name || childClass.name;
+			if (!resources[childName]) continue;
+			const foreignKey = findForeignKeyField(childMeta, parentName);
+			if (!foreignKey) continue;
+			children.push({
+				childResource: childName,
+				foreignKey,
+				policy: "cascade",
+				parentField: fieldName
+			});
+		}
+
+		for (const other of options.entities) {
+			const otherMeta = getEntityMetadata(other);
+			const otherName = otherMeta.name || other.name;
+			if (otherName === parentName || !resources[otherName]) continue;
+			for (const [, fieldMeta] of Object.entries(otherMeta.fields)) {
+				if (!fieldMeta.relationship || fieldMeta.relationship.type !== RelationshipTypes.one) {
+					continue;
+				}
+				const target = fieldMeta.relationship.target() as EntityClass;
+				const targetMeta = getEntityMetadata(target);
+				const targetName = targetMeta.name || target.name;
+				if (targetName !== parentName) continue;
+				const foreignKey = findForeignKeyField(otherMeta, parentName);
+				if (!foreignKey) continue;
+				if (
+					children.some(
+						(child) => child.childResource === otherName && child.foreignKey === foreignKey
+					)
+				) {
+					continue;
+				}
+				if (children.some((child) => child.childResource === otherName && child.policy === "cascade")) {
+					continue;
+				}
+				children.push({
+					childResource: otherName,
+					foreignKey,
+					policy: "restrict"
+				});
+			}
+		}
+
+		resources[parentName] = {
+			...resources[parentName]!,
+			children: children.sort((a, b) =>
+				`${a.childResource}:${a.foreignKey}`.localeCompare(`${b.childResource}:${b.foreignKey}`)
+			)
 		};
 	}
 
 	return resources;
+}
+
+function findForeignKeyField(
+	childMeta: ReturnType<typeof getEntityMetadata>,
+	parentName: string
+): string | null {
+	const expected = `${parentName.charAt(0).toLowerCase()}${parentName.slice(1)}Id`;
+	if (childMeta.fields[expected] && !childMeta.fields[expected]?.relationship) {
+		return expected;
+	}
+	for (const [fieldName, fieldMeta] of Object.entries(childMeta.fields)) {
+		if (fieldMeta.relationship) continue;
+		if (fieldName.toLowerCase() === `${parentName.toLowerCase()}id`) return fieldName;
+	}
+	return null;
 }
 
 export function normalizeField(entityName: string, fieldName: string, meta: FieldMetadata<any>): AdminField {
@@ -131,7 +216,21 @@ export function formatResourcesModule(resources: AdminResources): string {
 				})
 				.join(",\n");
 
-			return `\t${JSON.stringify(resource.name)}: {\n\t\tname: ${JSON.stringify(resource.name)},\n\t\tslug: ${JSON.stringify(resource.slug)},\n\t\tfields: [\n${fields}\n\t\t]\n\t}`;
+			const children = (resource.children ?? [])
+				.map((child) => {
+					const lines = [
+						`\t\t\tchildResource: ${JSON.stringify(child.childResource)}`,
+						`\t\t\tforeignKey: ${JSON.stringify(child.foreignKey)}`,
+						`\t\t\tpolicy: ${JSON.stringify(child.policy)}`
+					];
+					if (child.parentField) {
+						lines.push(`\t\t\tparentField: ${JSON.stringify(child.parentField)}`);
+					}
+					return `\t\t{\n${lines.join(",\n")}\n\t\t}`;
+				})
+				.join(",\n");
+
+			return `\t${JSON.stringify(resource.name)}: {\n\t\tname: ${JSON.stringify(resource.name)},\n\t\tslug: ${JSON.stringify(resource.slug)},\n\t\tfields: [\n${fields}\n\t\t],\n\t\tchildren: [\n${children}\n\t\t]\n\t}`;
 		})
 		.join(",\n");
 

@@ -219,7 +219,14 @@ test.describe("Admin application E2E", () => {
 	test("E2E16-E2E17 alphabetical resources and unauthenticated sign-in", async ({ page }) => {
 		const labels = await page.locator(".max-w-7xl ul a").allTextContents();
 		const trimmed = labels.map((label) => label.trim());
-		expect(trimmed).toEqual(["Admin Users", "Faculty Awards", "Products"]);
+		expect(trimmed).toEqual([
+			"Admin Users",
+			"Faculties",
+			"Faculty Awards",
+			"Products",
+			"Research Grants",
+			"Sabbatical Credits"
+		]);
 
 		await page.evaluate(async () => window.__ADMIN_TEST__!.setIdentity(null));
 		await expect(
@@ -354,5 +361,139 @@ test.describe("Admin application E2E", () => {
 		await page.goto("/admin/not-a-resource/new");
 		await expect(page.getByRole("heading", { name: "Not found" })).toBeVisible();
 		await expect(page.getByRole("alert").filter({ hasText: "Unknown resource" })).toBeVisible();
+	});
+
+	test("CD-E2E delete parent with no children", async ({ page }) => {
+		await page.getByRole("link", { name: "Faculties", exact: true }).click();
+		await page.getByRole("link", { name: "New" }).click();
+		await page.locator("#field-name").fill("Solo Faculty");
+		await page.getByRole("button", { name: "Create" }).click();
+		await expect(page).toHaveURL(/\/admin\/faculties\/(?!new$)[^/]+$/);
+		await page.getByRole("button", { name: "Delete", exact: true }).click();
+		await expect(page.getByRole("dialog")).toContainText("permanently deleted");
+		await expect(page.getByRole("dialog")).not.toContainText("Sabbatical");
+		await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
+		await expect(page).toHaveURL(/\/admin\/faculties$/);
+		await expect(page.getByRole("main").getByText("Solo Faculty")).toHaveCount(0);
+	});
+
+	test("CD-E2E delete parent cascades exclusive sabbatical credits", async ({ page }) => {
+		await page.getByRole("link", { name: "Faculties", exact: true }).click();
+		await page.getByRole("link", { name: "New" }).click();
+		await page.locator("#field-name").fill("Cascade Parent");
+		await page.getByRole("button", { name: "Create" }).click();
+		await expect(page).toHaveURL(/\/admin\/faculties\/(?!new$)[^/]+$/);
+		const facultyUrl = page.url();
+		const facultyId = facultyUrl.split("/").pop()!;
+
+		await page.goto("/admin/sabbatical-credits/new");
+		await page.locator("#field-facultyId").fill(facultyId);
+		await page.locator("#field-year").fill("2024");
+		await page.getByRole("button", { name: "Create" }).click();
+		await expect(page).toHaveURL(/\/admin\/sabbatical-credits\/(?!new$)[^/]+$/);
+		const creditId = page.url().split("/").pop()!;
+
+		await page.goto("/admin/sabbatical-credits/new");
+		await page.locator("#field-facultyId").fill(facultyId);
+		await page.locator("#field-year").fill("2025");
+		await page.getByRole("button", { name: "Create" }).click();
+		await expect(page).toHaveURL(/\/admin\/sabbatical-credits\/(?!new$)[^/]+$/);
+
+		await page.goto(facultyUrl);
+		await expect(page.locator("#field-name")).toHaveValue("Cascade Parent");
+		await page.getByRole("button", { name: "Delete", exact: true }).click();
+		await expect(page.getByRole("dialog")).toContainText("Delete record and related data");
+		await expect(page.getByRole("dialog")).toContainText("2 Sabbatical Credits");
+		await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
+		await expect(page).toHaveURL(/\/admin\/faculties$/);
+		await page.goto(`/admin/sabbatical-credits/${creditId}`);
+		await expect(page.getByRole("alert").filter({ hasText: "Not found" })).toBeVisible();
+		await page.goto("/admin/sabbatical-credits");
+		await expect(page.getByText("No records")).toBeVisible();
+	});
+
+	test("CD-E2E shared child blocks parent delete", async ({ page }) => {
+		await page.getByRole("link", { name: "Faculties", exact: true }).click();
+		await page.getByRole("link", { name: "New" }).click();
+		await page.locator("#field-name").fill("Owner Faculty");
+		await page.getByRole("button", { name: "Create" }).click();
+		await expect(page).toHaveURL(/\/admin\/faculties\/(?!new$)[^/]+$/);
+		const ownerUrl = page.url();
+		const ownerId = ownerUrl.split("/").pop()!;
+
+		await page.goto("/admin/faculties/new");
+		await page.locator("#field-name").fill("Mentor Faculty");
+		await page.getByRole("button", { name: "Create" }).click();
+		await expect(page).toHaveURL(/\/admin\/faculties\/(?!new$)[^/]+$/);
+		const mentorId = page.url().split("/").pop()!;
+
+		await page.goto("/admin/sabbatical-credits/new");
+		await page.locator("#field-facultyId").fill(ownerId);
+		await page.locator("#field-sharedWithFacultyId").fill(mentorId);
+		await page.locator("#field-year").fill("2026");
+		await page.getByRole("button", { name: "Create" }).click();
+		await expect(page).toHaveURL(/\/admin\/sabbatical-credits\/(?!new$)[^/]+$/);
+
+		await page.goto(ownerUrl);
+		await expect(page.locator("#field-name")).toHaveValue("Owner Faculty");
+		await page.getByRole("button", { name: "Delete", exact: true }).click();
+		await expect(page.getByRole("dialog")).toContainText("Cannot delete");
+		await expect(page.getByRole("dialog")).toContainText("shared with another parent");
+		await expect(page.getByRole("dialog").getByRole("button", { name: "Delete" })).toHaveCount(0);
+		await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+		await expect(page).toHaveURL(ownerUrl);
+		await expect(page.locator("#field-name")).toHaveValue("Owner Faculty");
+	});
+
+	test("CD-E2E restrict ResearchGrant blocks parent delete", async ({ page }) => {
+		await page.getByRole("link", { name: "Faculties", exact: true }).click();
+		await page.getByRole("link", { name: "New" }).click();
+		await page.locator("#field-name").fill("Grant Holder");
+		await page.getByRole("button", { name: "Create" }).click();
+		await expect(page).toHaveURL(/\/admin\/faculties\/(?!new$)[^/]+$/);
+		const facultyUrl = page.url();
+		const facultyId = facultyUrl.split("/").pop()!;
+
+		await page.goto("/admin/research-grants/new");
+		await page.locator("#field-title").fill("NIH Career");
+		await page.locator("#field-facultyId").fill(facultyId);
+		await page.getByRole("button", { name: "Create" }).click();
+		await expect(page).toHaveURL(/\/admin\/research-grants\/(?!new$)[^/]+$/);
+
+		await page.goto(facultyUrl);
+		await expect(page.locator("#field-name")).toHaveValue("Grant Holder");
+		await page.getByRole("button", { name: "Delete", exact: true }).click();
+		await expect(page.getByRole("dialog")).toContainText("Cannot delete");
+		await expect(page.getByRole("dialog")).toContainText("Research Grants");
+		await expect(page.getByRole("dialog").getByRole("button", { name: "Delete" })).toHaveCount(0);
+		await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+		await expect(page.locator("#field-name")).toHaveValue("Grant Holder");
+	});
+
+	test("CD-E2E cancel cascade warning keeps parent and children", async ({ page }) => {
+		await page.getByRole("link", { name: "Faculties", exact: true }).click();
+		await page.getByRole("link", { name: "New" }).click();
+		await page.locator("#field-name").fill("Keep Parent");
+		await page.getByRole("button", { name: "Create" }).click();
+		await expect(page).toHaveURL(/\/admin\/faculties\/(?!new$)[^/]+$/);
+		const facultyUrl = page.url();
+		const facultyId = facultyUrl.split("/").pop()!;
+
+		await page.goto("/admin/sabbatical-credits/new");
+		await page.locator("#field-facultyId").fill(facultyId);
+		await page.locator("#field-year").fill("2023");
+		await page.getByRole("button", { name: "Create" }).click();
+		await expect(page).toHaveURL(/\/admin\/sabbatical-credits\/(?!new$)[^/]+$/);
+		const creditUrl = page.url();
+
+		await page.goto(facultyUrl);
+		await expect(page.locator("#field-name")).toHaveValue("Keep Parent");
+		await page.getByRole("button", { name: "Delete", exact: true }).click();
+		await expect(page.getByRole("dialog")).toContainText("1 Sabbatical Credits");
+		await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+		await expect(page.getByRole("dialog")).toHaveCount(0);
+		await expect(page.locator("#field-name")).toHaveValue("Keep Parent");
+		await page.goto(creditUrl);
+		await expect(page.locator("#field-year")).toHaveValue("2023");
 	});
 });

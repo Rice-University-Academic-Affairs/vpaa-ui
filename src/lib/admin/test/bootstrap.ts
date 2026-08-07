@@ -95,6 +95,7 @@ export function getTestAdminContext(): TestAdminHarness {
 	data.create = wrapPersist(data.create.bind(data));
 	data.update = wrapPersist(data.update.bind(data));
 	data.remove = wrapPersist(data.remove.bind(data));
+	data.inspectRemove = data.inspectRemove.bind(data);
 	const originalReset = data.reset.bind(data);
 	data.reset = (seed?: Record<string, AdminRecord[]>) => {
 		originalReset(seed);

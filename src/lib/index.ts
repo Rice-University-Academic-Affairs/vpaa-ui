@@ -66,13 +66,17 @@ export type {
 } from "./types/drilldown.js";
 
 export type {
+	AdminChildRelation,
 	AdminData,
+	AdminDeleteImpact,
+	AdminDeletePolicy,
 	AdminField,
 	AdminIdentity,
 	AdminMembershipService,
 	AdminRecord,
 	AdminResource,
 	AdminResources,
+	DeleteChildBucket,
 	ListRequest,
 	ListResult
 } from "./admin/types.js";

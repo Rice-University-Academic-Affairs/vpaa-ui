@@ -52,6 +52,24 @@
 	let submitting = $state(false);
 	let deleting = $state(false);
 	let deleteOpen = $state(false);
+	let deleteImpact = $state<Awaited<ReturnType<typeof admin.data.inspectRemove>> | null>(null);
+	let inspectingDelete = $state(false);
+
+	async function openDeleteDialog() {
+		formError = null;
+		deleteImpact = null;
+		deleteOpen = true;
+		if (resource.name === "AdminUser") return;
+		inspectingDelete = true;
+		try {
+			deleteImpact = await admin.data.inspectRemove(resource.name, id);
+		} catch (err) {
+			formError = mapAdminError(err);
+			deleteOpen = false;
+		} finally {
+			inspectingDelete = false;
+		}
+	}
 
 	async function submitUpdate() {
 		if (resource.name === "AdminUser") return;
@@ -113,7 +131,7 @@
 		{#if !member.isOwner && normalizeEmail(member.email) !== normalizeEmail(admin.identity?.email ?? "")}
 			<div class="border-destructive/20 flex flex-col gap-3 border-t pt-6">
 				<p class="text-sm font-medium">Remove administrator</p>
-				<Button variant="destructive" onclick={() => (deleteOpen = true)} disabled={deleting}>
+				<Button variant="destructive" onclick={() => void openDeleteDialog()} disabled={deleting}>
 					Remove
 				</Button>
 			</div>
@@ -130,10 +148,16 @@
 	/>
 	<div class="border-destructive/20 mt-10 flex flex-col gap-3 border-t pt-6">
 		<p class="text-sm font-medium">Delete record</p>
-		<Button variant="destructive" onclick={() => (deleteOpen = true)} disabled={deleting}>
+		<Button variant="destructive" onclick={() => void openDeleteDialog()} disabled={deleting}>
 			Delete
 		</Button>
 	</div>
 {/if}
 
-<DeleteRecordDialog bind:open={deleteOpen} onConfirm={confirmDelete} loading={deleting} />
+<DeleteRecordDialog
+	bind:open={deleteOpen}
+	onConfirm={confirmDelete}
+	loading={deleting}
+	impact={deleteImpact}
+	inspecting={inspectingDelete}
+/>

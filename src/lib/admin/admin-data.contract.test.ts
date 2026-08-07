@@ -278,7 +278,7 @@ describe("RayfinAdminData SDK dispatch", () => {
 			...values
 		}));
 		const del = vi.fn(async (_where: { id: string }) => undefined);
-		const findById = vi.fn(async () => null);
+		const findById = vi.fn(async (id: string) => ({ id, name: "N" }));
 		const create = vi.fn(async (values: Record<string, unknown>) => ({ id: "1", ...values }));
 		const executePaginated = vi.fn(async () => ({ items: [], hasNextPage: false }));
 		const after = vi.fn(() => ({ executePaginated }));

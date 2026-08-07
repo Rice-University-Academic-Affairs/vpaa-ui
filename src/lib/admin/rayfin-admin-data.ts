@@ -1,5 +1,6 @@
 import type {
 	AdminData,
+	AdminDeleteImpact,
 	AdminRecord,
 	AdminResources,
 	ListRequest,
@@ -8,6 +9,7 @@ import type {
 import { AdminError } from "./types.js";
 import { defaultSort } from "./conventions.js";
 import { clampAdminListLimit } from "./list-limit.js";
+import { computeDeleteImpact, performCascadeRemove, type CascadeStore } from "./cascade-delete.js";
 
 type Paginated = Promise<{ items: AdminRecord[]; hasNextPage: boolean; endCursor?: string }>;
 
@@ -44,7 +46,10 @@ function wrapRayfinError(error: unknown): never {
 	if (lower.includes("forbidden") || lower.includes("permission")) {
 		throw new AdminError("forbidden", "This operation is not permitted.", { status: 403 });
 	}
-	if (lower.includes("validation") || lower.includes("constraint")) {
+	if (lower.includes("conflict") || lower.includes("foreign key") || lower.includes("constraint")) {
+		throw new AdminError("conflict", message, { status: 409 });
+	}
+	if (lower.includes("validation")) {
 		throw new AdminError("validation", message, { status: 400 });
 	}
 	if (lower.includes("not found") || lower.includes("notfound") || lower.includes("invalid cursor")) {
@@ -115,13 +120,42 @@ export class RayfinAdminData implements AdminData {
 		}
 	}
 
-	async remove(resource: string, id: string): Promise<void> {
+	async inspectRemove(resource: string, id: string): Promise<AdminDeleteImpact> {
 		this.assertMutableResource(resource, "write");
 		try {
-			await this.clientFor(resource).delete({ id });
+			return await computeDeleteImpact(this.resources, this.cascadeStore(), resource, id);
 		} catch (error) {
 			wrapRayfinError(error);
 		}
+	}
+
+	async remove(resource: string, id: string): Promise<void> {
+		this.assertMutableResource(resource, "write");
+		try {
+			await performCascadeRemove(this.resources, this.cascadeStore(), resource, id);
+		} catch (error) {
+			wrapRayfinError(error);
+		}
+	}
+
+	private cascadeStore(): CascadeStore {
+		return {
+			get: async (resource, id) => this.clientFor(resource).findById(id),
+			listAll: async (resource) => {
+				const items: AdminRecord[] = [];
+				let cursor: string | undefined;
+				for (;;) {
+					const page = await this.list(resource, { limit: 200, cursor });
+					items.push(...page.items);
+					if (!page.hasNextPage || !page.endCursor) break;
+					cursor = page.endCursor;
+				}
+				return items;
+			},
+			deleteOne: async (resource, id) => {
+				await this.clientFor(resource).delete({ id });
+			}
+		};
 	}
 
 	private assertMutableResource(resource: string, _mode: "read" | "write"): void {

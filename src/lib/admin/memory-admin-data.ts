@@ -1,5 +1,6 @@
 import type {
 	AdminData,
+	AdminDeleteImpact,
 	AdminRecord,
 	AdminResources,
 	ListRequest,
@@ -9,6 +10,7 @@ import type {
 import { AdminError } from "./types.js";
 import { defaultSort } from "./conventions.js";
 import { clampAdminListLimit } from "./list-limit.js";
+import { computeDeleteImpact, performCascadeRemove, type CascadeStore } from "./cascade-delete.js";
 
 type Store = Map<string, Map<string, AdminRecord>>;
 
@@ -119,13 +121,35 @@ export class MemoryAdminData implements AdminData {
 		return { ...next };
 	}
 
+	async inspectRemove(resource: string, id: string): Promise<AdminDeleteImpact> {
+		this.assertKnown(resource);
+		this.assertMembershipGuard(resource);
+		this.assertAllowed(resource);
+		return computeDeleteImpact(this.resources, this.cascadeStore(), resource, id);
+	}
+
 	async remove(resource: string, id: string): Promise<void> {
 		this.assertKnown(resource);
 		this.assertMembershipGuard(resource);
 		this.assertAllowed(resource);
-		const bucket = this.ensure(resource);
-		if (!bucket.has(String(id))) throw new AdminError("not_found", `Record ${id} not found`);
-		bucket.delete(String(id));
+		await performCascadeRemove(this.resources, this.cascadeStore(), resource, id);
+	}
+
+	private cascadeStore(): CascadeStore {
+		return {
+			get: async (resource, id) => {
+				const record = this.ensure(resource).get(String(id));
+				return record ? { ...record } : null;
+			},
+			listAll: async (resource) => [...this.ensure(resource).values()].map((row) => ({ ...row })),
+			deleteOne: async (resource, id) => {
+				const bucket = this.ensure(resource);
+				if (!bucket.has(String(id))) {
+					throw new AdminError("not_found", `Record ${id} not found`);
+				}
+				bucket.delete(String(id));
+			}
+		};
 	}
 
 	private applySeed(seed: Record<string, AdminRecord[]>): void {

@@ -18,10 +18,20 @@ export type AdminField = {
 	primaryKey?: boolean;
 };
 
+export type AdminDeletePolicy = "cascade" | "restrict";
+
+export type AdminChildRelation = {
+	childResource: string;
+	foreignKey: string;
+	policy: AdminDeletePolicy;
+	parentField?: string;
+};
+
 export type AdminResource = {
 	name: string;
 	slug: string;
 	fields: readonly AdminField[];
+	children?: readonly AdminChildRelation[];
 };
 
 export type AdminResources = Record<string, AdminResource>;
@@ -43,6 +53,23 @@ export type ListResult = {
 	items: AdminRecord[];
 	hasNextPage: boolean;
 	endCursor?: string;
+};
+
+export type DeleteChildBucket = {
+	resource: string;
+	foreignKey: string;
+	policy: AdminDeletePolicy;
+	count: number;
+	sampleIds: string[];
+	reason?: "shared";
+};
+
+export type AdminDeleteImpact = {
+	resource: string;
+	id: string;
+	blocking: DeleteChildBucket[];
+	cascading: DeleteChildBucket[];
+	canDelete: boolean;
 };
 
 export type AdminErrorKind = "validation" | "forbidden" | "not_found" | "conflict" | "unauthorized" | "unexpected";
@@ -75,6 +102,7 @@ export interface AdminData {
 	get(resource: string, id: string): Promise<AdminRecord | null>;
 	create(resource: string, values: Record<string, unknown>): Promise<AdminRecord>;
 	update(resource: string, id: string, values: Record<string, unknown>): Promise<AdminRecord>;
+	inspectRemove(resource: string, id: string): Promise<AdminDeleteImpact>;
 	remove(resource: string, id: string): Promise<void>;
 }
 

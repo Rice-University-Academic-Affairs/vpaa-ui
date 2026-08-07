@@ -99,6 +99,29 @@ describe("admin generator", () => {
 		assert.ok(!resources.ProductCategory!.fields.some((f) => f.name === "product"));
 	});
 
+	it("emits cascade and restrict child edges from @many/@one (G10)", async () => {
+		const { Faculty } = await import("../rayfin/data/Faculty.js");
+		const { SabbaticalCredit } = await import("../rayfin/data/SabbaticalCredit.js");
+		const { ResearchGrant } = await import("../rayfin/data/ResearchGrant.js");
+		const resources = extractResources({ entities: [Faculty, SabbaticalCredit, ResearchGrant] });
+		assert.deepEqual(resources.Faculty!.children, [
+			{
+				childResource: "ResearchGrant",
+				foreignKey: "facultyId",
+				policy: "restrict"
+			},
+			{
+				childResource: "SabbaticalCredit",
+				foreignKey: "facultyId",
+				policy: "cascade",
+				parentField: "sabbaticalCredits"
+			}
+		]);
+		assert.ok(!resources.Faculty!.fields.some((f) => f.name === "sabbaticalCredits"));
+		assert.ok(resources.SabbaticalCredit!.fields.some((f) => f.name === "facultyId"));
+		assert.ok(resources.SabbaticalCredit!.fields.some((f) => f.name === "sharedWithFacultyId"));
+	});
+
 	it("checkAdminResources rejects stale filesystem output (G9, S1)", async () => {
 		const dir = await mkdtemp(path.join(os.tmpdir(), "admin-check-"));
 		const staleFile = path.join(dir, "resources.ts");

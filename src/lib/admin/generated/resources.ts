@@ -44,6 +44,43 @@ export const adminResources = {
 			readOnly: true,
 			generated: false
 		}
+		],
+		children: [
+
+		]
+	},
+	"Faculty": {
+		name: "Faculty",
+		slug: "faculties",
+		fields: [
+		{
+			name: "id",
+			type: "string",
+			nullable: false,
+			readOnly: true,
+			generated: true,
+			primaryKey: true
+		},
+		{
+			name: "name",
+			type: "string",
+			nullable: false,
+			readOnly: false,
+			generated: false
+		}
+		],
+		children: [
+		{
+			childResource: "ResearchGrant",
+			foreignKey: "facultyId",
+			policy: "restrict"
+		},
+		{
+			childResource: "SabbaticalCredit",
+			foreignKey: "facultyId",
+			policy: "cascade",
+			parentField: "sabbaticalCredits"
+		}
 		]
 	},
 	"FacultyAward": {
@@ -108,6 +145,9 @@ export const adminResources = {
 			readOnly: false,
 			generated: false
 		}
+		],
+		children: [
+
 		]
 	},
 	"Product": {
@@ -143,6 +183,85 @@ export const adminResources = {
 			readOnly: false,
 			generated: false
 		}
+		],
+		children: [
+
+		]
+	},
+	"ResearchGrant": {
+		name: "ResearchGrant",
+		slug: "research-grants",
+		fields: [
+		{
+			name: "id",
+			type: "string",
+			nullable: false,
+			readOnly: true,
+			generated: true,
+			primaryKey: true
+		},
+		{
+			name: "title",
+			type: "string",
+			nullable: false,
+			readOnly: false,
+			generated: false
+		},
+		{
+			name: "facultyId",
+			type: "string",
+			nullable: false,
+			readOnly: false,
+			generated: false
+		}
+		],
+		children: [
+
+		]
+	},
+	"SabbaticalCredit": {
+		name: "SabbaticalCredit",
+		slug: "sabbatical-credits",
+		fields: [
+		{
+			name: "id",
+			type: "string",
+			nullable: false,
+			readOnly: true,
+			generated: true,
+			primaryKey: true
+		},
+		{
+			name: "facultyId",
+			type: "string",
+			nullable: false,
+			readOnly: false,
+			generated: false
+		},
+		{
+			name: "sharedWithFacultyId",
+			type: "string",
+			nullable: true,
+			readOnly: false,
+			generated: false
+		},
+		{
+			name: "year",
+			type: "integer",
+			nullable: false,
+			readOnly: false,
+			generated: false
+		},
+		{
+			name: "notes",
+			type: "text",
+			nullable: true,
+			readOnly: false,
+			generated: false
+		}
+		],
+		children: [
+
 		]
 	}
 } as const satisfies AdminResources;
