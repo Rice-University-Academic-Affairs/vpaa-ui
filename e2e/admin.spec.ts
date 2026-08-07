@@ -72,6 +72,18 @@ test.describe("Admin application E2E", () => {
 		await expect(page.getByRole("alert").filter({ hasText: "Forbidden" })).toBeVisible();
 		await page.goto("/admin/products/new");
 		await expect(page.getByRole("alert").filter({ hasText: "Forbidden" })).toBeVisible();
+		await page.goto("/admin/admin-users");
+		await expect(page.getByRole("alert").filter({ hasText: "Forbidden" })).toBeVisible();
+		await page.goto("/admin/faculty-awards/new");
+		await expect(page.getByRole("alert").filter({ hasText: "Forbidden" })).toBeVisible();
+	});
+
+	test("A6 Admin breadcrumb returns to resource index", async ({ page }) => {
+		await page.getByRole("link", { name: "Products", exact: true }).click();
+		await expect(page.getByRole("heading", { name: "Products" })).toBeVisible();
+		await page.getByRole("main").getByRole("link", { name: "Admin", exact: true }).click();
+		await expect(page.getByRole("heading", { name: "Admin" })).toBeVisible();
+		await expect(page.getByRole("link", { name: "Products", exact: true })).toBeVisible();
 	});
 
 	test("E2E3 owner appears and cannot be removed", async ({ page }) => {
@@ -220,5 +232,127 @@ test.describe("Admin application E2E", () => {
 		await expect(
 			page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Admin" })
 		).toBeVisible();
+	});
+
+	test("B6-B7 Admin Users cancel remove and self-remove hidden", async ({ page }) => {
+		await page.getByRole("link", { name: "Admin Users", exact: true }).click();
+		await page.getByRole("link", { name: "New" }).click();
+		await page.locator("#field-email").fill("admin@example.edu");
+		await page.getByRole("button", { name: "Create" }).click();
+		await expect(page.locator("#member-email")).toHaveValue("admin@example.edu");
+
+		await page.goto("/admin/admin-users");
+		await page.getByRole("main").getByRole("button", { name: /admin@example.edu/ }).click();
+		await page.getByRole("button", { name: "Remove" }).click();
+		await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+		await expect(page.getByRole("dialog")).toHaveCount(0);
+		await expect(page.locator("#member-email")).toHaveValue("admin@example.edu");
+
+		await page.evaluate(async () => {
+			const harness = window.__ADMIN_TEST__!;
+			await harness.setIdentity(harness.identities.TEST_ADMIN);
+		});
+		await page.goto("/admin/admin-users");
+		await page.getByRole("main").getByRole("button", { name: /admin@example.edu/ }).click();
+		await expect(page.locator("#member-email")).toHaveValue("admin@example.edu");
+		await expect(page.getByRole("button", { name: "Remove" })).toHaveCount(0);
+	});
+
+	test("B8-B11 Admin Users validation conflict and missing id", async ({ page }) => {
+		await page.getByRole("link", { name: "Admin Users", exact: true }).click();
+		await page.getByRole("link", { name: "New" }).click();
+		await page.locator("#field-email").fill("nope");
+		await page.getByRole("button", { name: "Create" }).click();
+		await expect(page.getByText("Invalid email")).toBeVisible();
+		await expect(page.locator("#field-email")).toHaveValue("nope");
+
+		await page.locator("#field-email").fill("owner@example.edu");
+		await page.getByRole("button", { name: "Create" }).click();
+		await expect(page.getByRole("alert").filter({ hasText: "Conflict" })).toBeVisible();
+
+		await page.locator("#field-email").fill("admin@example.edu");
+		await page.getByRole("button", { name: "Create" }).click();
+		await expect(page.locator("#member-email")).toHaveValue("admin@example.edu");
+
+		await page.goto("/admin/admin-users/new");
+		await page.locator("#field-email").fill("admin@example.edu");
+		await page.getByRole("button", { name: "Create" }).click();
+		await expect(page.getByRole("alert").filter({ hasText: "Conflict" })).toBeVisible();
+
+		await page.goto("/admin/admin-users/missing-member-id");
+		await expect(page.getByRole("alert").filter({ hasText: "Not found" })).toBeVisible();
+	});
+
+	test("C3-C4-C6-C7 Products sort asc row-click required empty list", async ({ page }) => {
+		await page.getByRole("link", { name: "Products", exact: true }).click();
+		await page.getByRole("button", { name: "Name" }).click();
+		await expect(page.getByRole("button", { name: /Name/ })).toContainText("↑");
+		const namesAsc = await page.locator("tbody tr td:nth-child(2)").allTextContents();
+		expect(namesAsc[0]?.trim()).toBe("Product 001");
+		expect(namesAsc[namesAsc.length - 1]?.trim()).toBe("Product 025");
+
+		const firstId = (await page.locator("tbody tr").first().locator("td").first().textContent())?.trim();
+		await page.locator("tbody tr").first().click();
+		await expect(page).toHaveURL(new RegExp(`/admin/products/${firstId}$`));
+		await expect(page.locator("#field-name")).toHaveValue("Product 001");
+
+		await page.goto("/admin/products/new");
+		await page.locator("#field-priceInCents").fill("100");
+		await page.getByRole("button", { name: "Create" }).click();
+		await expect(page.getByText("Required")).toBeVisible();
+		await expect(page.locator("#field-priceInCents")).toHaveValue("100");
+
+		await page.evaluate(() => {
+			window.__ADMIN_TEST__!.data.reset({ Product: [] });
+		});
+		await page.goto("/admin/products");
+		await expect(page.getByText("No records")).toBeVisible();
+	});
+
+	test("C9 Products forbidden on create when entity denied", async ({ page }) => {
+		await page.evaluate(() => window.__ADMIN_TEST__!.setForbidden(["Product"]));
+		await page.goto("/admin/products/new");
+		await page.locator("#field-name").fill("Blocked");
+		await page.locator("#field-priceInCents").fill("100");
+		await page.getByRole("button", { name: "Create" }).click();
+		await expect(page.getByRole("alert").filter({ hasText: "Forbidden" })).toBeVisible();
+	});
+
+	test("D2-D4 Faculty Awards list edit delete", async ({ page }) => {
+		await page.getByRole("link", { name: "Faculty Awards", exact: true }).click();
+		await page.getByRole("link", { name: "New" }).click();
+		await page.locator("#field-title").fill("Research Merit");
+		await page.locator("#field-facultyId").fill("FAC-200");
+		await page.locator("#field-status").click();
+		await page.getByRole("option", { name: "awarded" }).click();
+		await page.getByRole("button", { name: "Create" }).click();
+		await expect(page).toHaveURL(/\/admin\/faculty-awards\/(?!new$)[^/]+$/);
+		const editUrl = page.url();
+
+		await page.goto("/admin/faculty-awards");
+		await expect(page.getByRole("main").getByText("Research Merit")).toBeVisible();
+		await page.getByRole("main").getByText("Research Merit").click();
+		await expect(page).toHaveURL(editUrl);
+
+		await page.locator("#field-title").fill("Research Merit Updated");
+		await page.getByRole("button", { name: "Save" }).click();
+		await page.reload();
+		await expect(page.locator("#field-title")).toHaveValue("Research Merit Updated");
+
+		await page.getByRole("button", { name: "Delete", exact: true }).click();
+		await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+		await expect(page.getByRole("dialog")).toHaveCount(0);
+		await expect(page.locator("#field-title")).toHaveValue("Research Merit Updated");
+
+		await page.getByRole("button", { name: "Delete", exact: true }).click();
+		await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
+		await expect(page).toHaveURL(/\/admin\/faculty-awards$/);
+		await expect(page.getByRole("main").getByText("Research Merit Updated")).toHaveCount(0);
+	});
+
+	test("E3 unknown resource new route shows Not found", async ({ page }) => {
+		await page.goto("/admin/not-a-resource/new");
+		await expect(page.getByRole("heading", { name: "Not found" })).toBeVisible();
+		await expect(page.getByRole("alert").filter({ hasText: "Unknown resource" })).toBeVisible();
 	});
 });
