@@ -34,3 +34,7 @@ export async function openHeaderSearch(page: Page) {
 	await expect(searchInput).toBeVisible();
 	return searchInput;
 }
+
+export async function useMobileViewport(page: Page) {
+	await page.setViewportSize({ width: 390, height: 844 });
+}

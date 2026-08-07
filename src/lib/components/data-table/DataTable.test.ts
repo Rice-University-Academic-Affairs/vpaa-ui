@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/sve
 import { userEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DataTable from "./DataTable.svelte";
+import DualTableHarness from "./DualTableHarness.svelte";
 import { facultyColumns, facultyData } from "../../../test/table-fixtures.js";
 
 afterEach(() => {
@@ -171,5 +172,13 @@ describe("DataTable", () => {
 		expect(
 			table.getByText("No results match these filters. Try clearing one.")
 		).toBeInTheDocument();
+	});
+
+	it("uses unique search input ids when multiple tables render", () => {
+		const view = render(DualTableHarness);
+		const inputs = within(view.container).getAllByLabelText("Search faculty…");
+
+		expect(inputs).toHaveLength(2);
+		expect(inputs[0]?.id).not.toBe(inputs[1]?.id);
 	});
 });

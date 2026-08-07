@@ -59,6 +59,34 @@ test.describe("Showcase data table", () => {
 		await expect(table.getByText("Showing 6")).toBeVisible();
 		await expect(table.locator("tbody tr").first()).toContainText("Dr. Elena Martinez");
 	});
+
+	test("removes a filter chip and restores all rows", async ({ page }) => {
+		await gotoShowcase(page);
+
+		const table = facultyTable(page);
+		await table.getByRole("button", { name: "Filter" }).click();
+		await page.getByLabel("Tenured").click();
+
+		await expect(table.locator("tbody tr")).toHaveCount(6);
+		await table.getByRole("button", { name: "Remove Status Tenured" }).click();
+
+		await expect(table.locator("tbody tr")).toHaveCount(10);
+		await expect(table.getByText("Page 1 of 2")).toBeVisible();
+	});
+
+	test("clears all filters from the active filters bar", async ({ page }) => {
+		await gotoShowcase(page);
+
+		const table = facultyTable(page);
+		await table.getByRole("button", { name: "Filter" }).click();
+		await page.getByLabel("Tenured").click();
+
+		await expect(table.locator("tbody tr")).toHaveCount(6);
+		await table.getByRole("button", { name: "Clear all" }).click();
+
+		await expect(table.locator("tbody tr")).toHaveCount(10);
+		await expect(table.getByText("Page 1 of 2")).toBeVisible();
+	});
 });
 
 test.describe("Showcase drilldown table", () => {
@@ -117,9 +145,21 @@ test.describe("Showcase drilldown table", () => {
 
 		const drilldown = drilldownTable(page);
 		await drilldown.getByRole("tab", { name: "All faculty" }).click();
-		await drilldown.getByRole("textbox").fill("Elena");
+		await drilldown.getByLabel("Search faculty…").fill("Elena");
 
 		await expect(drilldown.locator("tbody tr")).toHaveCount(1);
 		await expect(drilldown.locator("tbody tr").first()).toContainText("Dr. Elena Martinez");
+	});
+
+	test("filters all faculty by status in the drilldown table", async ({ page }) => {
+		await gotoShowcase(page);
+
+		const drilldown = drilldownTable(page);
+		await drilldown.getByRole("tab", { name: "All faculty" }).click();
+		await drilldown.getByRole("button", { name: "Filter" }).click();
+		await page.getByLabel("Tenured").click();
+
+		await expect(drilldown.locator("tbody tr")).toHaveCount(6);
+		await expect(drilldown.getByText("Showing 6")).toBeVisible();
 	});
 });

@@ -16,6 +16,7 @@
 <Sheet.Root bind:open>
 	<Sheet.Content
 		side="right"
+		portalProps={{ disabled: import.meta.env.VITEST }}
 		class="flex h-full w-full max-w-full flex-col gap-0 p-0 motion-reduce:transition-none data-[side=right]:w-full data-[side=right]:max-w-full sm:data-[side=right]:w-[40vw] sm:data-[side=right]:min-w-[520px] sm:data-[side=right]:max-w-[40vw]"
 	>
 		<Sheet.Header class="shrink-0 border-b border-border px-6 py-4">

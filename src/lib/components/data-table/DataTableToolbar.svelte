@@ -8,6 +8,7 @@
 	import DataTableFilterPopover from "./DataTableFilterPopover.svelte";
 	import DataTableSortMenu from "./DataTableSortMenu.svelte";
 	import type { DataTableState } from "./use-data-table-state.svelte.js";
+	import { createDataTableId } from "./data-table-id.js";
 
 	type Props = {
 		table: DataTableInstance<TData>;
@@ -29,6 +30,8 @@
 		onFilterChange
 	}: Props = $props();
 
+	const searchInputId = createDataTableId("data-table-search");
+
 	const showToolbar = $derived(
 		Boolean(
 			search ||
@@ -45,9 +48,9 @@
 				<SearchIcon
 					class="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
 				/>
-				<label class="sr-only" for="data-table-search">{search.placeholder ?? "Search"}</label>
+				<label class="sr-only" for={searchInputId}>{search.placeholder ?? "Search"}</label>
 				<Input
-					id="data-table-search"
+					id={searchInputId}
 					class="h-9 ps-8 {tableState.searchQuery ? 'pe-8' : ''}"
 					placeholder={search.placeholder ?? "Search…"}
 					value={tableState.searchQuery}
