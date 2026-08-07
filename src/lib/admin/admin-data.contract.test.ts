@@ -320,6 +320,24 @@ describe("RayfinAdminData SDK dispatch", () => {
 							select,
 							findById,
 							create: async () => {
+								throw new Error("GraphQL errors: unauthorized");
+							},
+							update,
+							delete: del
+						}
+					}
+				},
+				contractResources
+			).create("Product", { name: "X" })
+		).rejects.toMatchObject({ kind: "unauthorized", status: 401 });
+		await expect(
+			new RayfinAdminData(
+				{
+					data: {
+						Product: {
+							select,
+							findById,
+							create: async () => {
 								throw new Error("GraphQL errors: internal failure");
 							},
 							update,
@@ -330,5 +348,76 @@ describe("RayfinAdminData SDK dispatch", () => {
 				contractResources
 			).create("Product", { name: "X" })
 		).rejects.toMatchObject({ kind: "unexpected" });
+	});
+
+	it("maps unauthorized distinctly from forbidden", async () => {
+		const findById = vi.fn(async () => null);
+		const create = vi.fn(async (values: Record<string, unknown>) => ({ id: "1", ...values }));
+		const update = vi.fn(async () => ({ id: "1" }));
+		const del = vi.fn(async () => undefined);
+		const executePaginated = vi.fn(async () => ({ items: [], hasNextPage: false }));
+		const after = vi.fn(() => ({ executePaginated }));
+		const first = vi.fn(() => ({ after, executePaginated }));
+		const orderBy = vi.fn(() => ({ first }));
+		const select = vi.fn(() => ({ orderBy }));
+		const base = { select, findById, create, update, delete: del };
+
+		await expect(
+			new RayfinAdminData(
+				{
+					data: {
+						Product: {
+							...base,
+							create: async () => {
+								throw new Error("unauthorized");
+							}
+						}
+					}
+				},
+				contractResources
+			).create("Product", { name: "X" })
+		).rejects.toMatchObject({ kind: "unauthorized" });
+
+		await expect(
+			new RayfinAdminData(
+				{
+					data: {
+						Product: {
+							...base,
+							create: async () => {
+								throw new Error("permission denied");
+							}
+						}
+					}
+				},
+				contractResources
+			).create("Product", { name: "X" })
+		).rejects.toMatchObject({ kind: "forbidden" });
+	});
+
+	it("clamps list limit before first()", async () => {
+		const executePaginated = vi.fn(async () => ({ items: [], hasNextPage: false }));
+		const after = vi.fn(() => ({ executePaginated }));
+		const first = vi.fn(() => ({ after, executePaginated }));
+		const orderBy = vi.fn(() => ({ first }));
+		const select = vi.fn(() => ({ orderBy }));
+		const data = new RayfinAdminData(
+			{
+				data: {
+					Product: {
+						select,
+						findById: async () => null,
+						create: async (values) => ({ id: "1", ...values }),
+						update: async (_where, values) => ({ id: "1", ...values }),
+						delete: async () => undefined
+					}
+				}
+			},
+			contractResources
+		);
+		await data.list("Product", { limit: 1000 });
+		expect(first).toHaveBeenCalledWith(25);
+		await data.list("Product", { limit: 0 });
+		expect(first).toHaveBeenCalledWith(1);
 	});
 });

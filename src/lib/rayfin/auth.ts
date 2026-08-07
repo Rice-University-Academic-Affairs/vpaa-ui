@@ -3,9 +3,16 @@ import type { Auth } from "@microsoft/rayfin-auth";
 import type { FabricAuthOptions } from "@microsoft/rayfin-auth-provider-fabric";
 import { initEmbeddedAuth as sdkInitEmbeddedAuth } from "@microsoft/rayfin-auth-provider-fabric";
 import type { RayfinClient } from "@microsoft/rayfin-client";
-import { normalizeEmail } from "$lib/admin/owner-config.js";
+import { isValidEmail, normalizeEmail } from "$lib/admin/owner-config.js";
 import type { AdminIdentity } from "$lib/admin/types.js";
 import { getRayfinClient, type RayfinClientEnv } from "./client.js";
+
+export class FabricAuthConfigError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "FabricAuthConfigError";
+	}
+}
 
 export type FabricEmbeddedInit = (
 	auth: Auth,
@@ -30,30 +37,41 @@ export type BootstrapAuthOptions = {
 		VITE_FABRIC_PORTAL_URL?: string;
 	};
 	returnOrigin?: string;
+	fabricOptions?: FabricAuthOptions;
 	initEmbeddedAuth?: FabricEmbeddedInit;
 };
 
 export function readFabricAuthOptions(
 	env: BootstrapAuthOptions["env"] = import.meta.env,
-	returnOrigin = typeof window !== "undefined" ? window.location.origin : "http://localhost:5173"
+	returnOrigin?: string
 ): FabricAuthOptions {
 	const workspaceId = env?.VITE_FABRIC_WORKSPACE_ID;
 	const projectId = env?.VITE_FABRIC_ITEM_ID;
 	const fabricPortalUrl = env?.VITE_FABRIC_PORTAL_URL;
 	if (!workspaceId || !projectId || !fabricPortalUrl) {
-		throw new Error("Missing required env vars for Fabric auth - run 'npx rayfin up'");
+		throw new FabricAuthConfigError(
+			"Missing required env vars for Fabric auth - run 'npx rayfin up'"
+		);
+	}
+	const origin =
+		returnOrigin ?? (typeof window !== "undefined" ? window.location.origin : undefined);
+	if (!origin) {
+		throw new FabricAuthConfigError(
+			"Fabric auth requires an explicit returnOrigin outside the browser"
+		);
 	}
 	return {
 		workspaceId,
 		projectId,
 		fabricPortalUrl,
-		returnOrigin
+		returnOrigin: origin
 	};
 }
 
 export function bootstrapAuth(options: BootstrapAuthOptions = {}): IAuthService {
 	const client = options.client ?? getRayfinClient(options.env);
-	const fabricOptions = readFabricAuthOptions(options.env, options.returnOrigin);
+	const fabricOptions =
+		options.fabricOptions ?? readFabricAuthOptions(options.env, options.returnOrigin);
 	const init = options.initEmbeddedAuth ?? sdkInitEmbeddedAuth;
 	return {
 		initEmbeddedAuth: () => init(client.auth, fabricOptions)
@@ -63,7 +81,7 @@ export function bootstrapAuth(options: BootstrapAuthOptions = {}): IAuthService 
 export function identityFromSession(session: OpaqueSession | null | undefined): AdminIdentity | null {
 	if (!session?.isAuthenticated || !session.user?.email) return null;
 	const email = normalizeEmail(session.user.email);
-	if (!email.includes("@")) return null;
+	if (!isValidEmail(email)) return null;
 	return { email };
 }
 
@@ -80,7 +98,8 @@ export async function loadAppAuth(options: BootstrapAuthOptions = {}): Promise<A
 	try {
 		const session = await bootstrapAuth(options).initEmbeddedAuth();
 		return sessionToAppAuth(session);
-	} catch {
+	} catch (error) {
+		if (error instanceof FabricAuthConfigError) throw error;
 		return { authenticated: false, email: null, identity: null };
 	}
 }

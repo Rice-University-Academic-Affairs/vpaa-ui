@@ -2,13 +2,14 @@ import type { OpaqueSession } from "@microsoft/rayfin-auth";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	bootstrapAuth,
+	FabricAuthConfigError,
 	identityFromSession,
 	loadAppAuth,
 	readFabricAuthOptions,
 	sessionToAppAuth
 } from "./auth.js";
 import { createFakeFabricInit, createOpaqueSession } from "./test/fake-fabric.js";
-import { resetRayfinClientForTests } from "./client.js";
+import { getRayfinClient, resetRayfinClientForTests } from "./client.js";
 
 const fabricEnv = {
 	VITE_RAYFIN_API_URL: "https://rayfin.example/api",
@@ -43,6 +44,17 @@ describe("Fabric auth session mapping (A1-A4)", () => {
 				isAuthenticated: false,
 				isAnonymous: true
 			})
+		).toBeNull();
+	});
+
+	it("rejects invalid email shapes via isValidEmail", () => {
+		expect(
+			identityFromSession(
+				createOpaqueSession({ email: "not-an-email", id: "sub-1" })
+			)
+		).toBeNull();
+		expect(
+			identityFromSession(createOpaqueSession({ email: "a@", id: "sub-2" }))
 		).toBeNull();
 	});
 });
@@ -100,6 +112,44 @@ describe("bootstrapAuth / loadAppAuth (A5-A8)", () => {
 			}
 		});
 		expect(result).toEqual({ authenticated: false, email: null, identity: null });
+	});
+
+	it("loadAppAuth rethrows FabricAuthConfigError (A5b)", async () => {
+		await expect(loadAppAuth({ env: {}, returnOrigin: "http://localhost:5173" })).rejects.toBeInstanceOf(
+			FabricAuthConfigError
+		);
+		await expect(
+			loadAppAuth({
+				env: {
+					VITE_RAYFIN_API_URL: "https://rayfin.example/api",
+					VITE_RAYFIN_PUBLISHABLE_KEY: "pk_test"
+				},
+				returnOrigin: "http://localhost:5173"
+			})
+		).rejects.toThrow(/Missing required env vars for Fabric auth/i);
+	});
+
+	it("readFabricAuthOptions requires returnOrigin outside browser", () => {
+		vi.stubGlobal("window", undefined);
+		try {
+			expect(() => readFabricAuthOptions(fabricEnv)).toThrow(FabricAuthConfigError);
+			expect(() => readFabricAuthOptions(fabricEnv)).toThrow(/returnOrigin/i);
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
+
+	it("getRayfinClient rejects credential mismatch", () => {
+		getRayfinClient({
+			VITE_RAYFIN_API_URL: "https://rayfin.example/api",
+			VITE_RAYFIN_PUBLISHABLE_KEY: "pk_test"
+		});
+		expect(() =>
+			getRayfinClient({
+				VITE_RAYFIN_API_URL: "https://other.example/api",
+				VITE_RAYFIN_PUBLISHABLE_KEY: "pk_other"
+			})
+		).toThrow(/different credentials/i);
 	});
 
 	it("does not treat a mocked membership check as Fabric success (anti-tautology)", async () => {

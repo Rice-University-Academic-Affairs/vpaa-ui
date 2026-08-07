@@ -189,4 +189,34 @@ describe("trusted membership helper", () => {
 		await expect(service.remove(TEST_ADMIN, added.id)).rejects.toMatchObject({ kind: "conflict" });
 		await expect(service.remove(TEST_OWNER, "missing")).rejects.toMatchObject({ kind: "not_found" });
 	});
+
+	it("check does not collapse store list failures into forbidden", async () => {
+		const service = createTrustedMembershipService({
+			ownerEmail: DEFAULT_OWNER_ADMIN_EMAIL,
+			store: {
+				async list() {
+					throw new Error("store down");
+				},
+				async create() {
+					throw new Error("unused");
+				},
+				async remove() {
+					throw new Error("unused");
+				},
+				async update() {
+					throw new Error("unused");
+				}
+			}
+		});
+		await expect(service.check(TEST_ADMIN)).rejects.toThrow("store down");
+	});
+
+	it("check still returns 403 for non-admin when store works", async () => {
+		const { store } = createStore();
+		const service = createTrustedMembershipService({
+			ownerEmail: DEFAULT_OWNER_ADMIN_EMAIL,
+			store
+		});
+		expect(await service.check(TEST_NON_ADMIN)).toEqual({ allowed: false, status: 403 });
+	});
 });

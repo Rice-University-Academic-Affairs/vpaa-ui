@@ -6,7 +6,8 @@ import type {
 	ListResult
 } from "./types.js";
 import { AdminError } from "./types.js";
-import { ADMIN_PAGE_SIZE, defaultSort } from "./conventions.js";
+import { defaultSort } from "./conventions.js";
+import { clampAdminListLimit } from "./list-limit.js";
 
 type Paginated = Promise<{ items: AdminRecord[]; hasNextPage: boolean; endCursor?: string }>;
 
@@ -37,7 +38,10 @@ function wrapRayfinError(error: unknown): never {
 	if (error instanceof AdminError) throw error;
 	const message = error instanceof Error ? error.message : "Unexpected Rayfin error";
 	const lower = message.toLowerCase();
-	if (lower.includes("forbidden") || lower.includes("permission") || lower.includes("unauthorized")) {
+	if (lower.includes("unauthorized")) {
+		throw new AdminError("unauthorized", "Sign in required", { status: 401 });
+	}
+	if (lower.includes("forbidden") || lower.includes("permission")) {
 		throw new AdminError("forbidden", "This operation is not permitted.", { status: 403 });
 	}
 	if (lower.includes("validation") || lower.includes("constraint")) {
@@ -70,7 +74,7 @@ export class RayfinAdminData implements AdminData {
 			const builder = entity
 				.select(fields)
 				.orderBy(order)
-				.first(request.limit ?? ADMIN_PAGE_SIZE);
+				.first(clampAdminListLimit(request.limit));
 			const page = request.cursor
 				? await builder.after(request.cursor).executePaginated()
 				: await builder.executePaginated();

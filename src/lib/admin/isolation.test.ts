@@ -22,7 +22,7 @@ describe("production isolation (I1-I3)", () => {
 		const layout = readFileSync(path.resolve("src/routes/admin/+layout.svelte"), "utf8");
 		expect(layout).not.toMatch(/url\.searchParams.*memory/i);
 		expect(layout).not.toMatch(/localStorage.*adminMode/i);
-		expect(layout).toMatch(/PUBLIC_ADMIN_TEST_MODE|import\.meta\.env\.DEV/);
+		expect(layout).toMatch(/isAdminTestMode|PUBLIC_ADMIN_TEST_MODE|import\.meta\.env\.DEV/);
 		expect(layout).toMatch(/getTestAdminContext/);
 	});
 
@@ -30,6 +30,32 @@ describe("production isolation (I1-I3)", () => {
 		const layout = readFileSync(path.resolve("src/routes/admin/+layout.svelte"), "utf8");
 		expect(layout).not.toMatch(/MemoryAdminData/);
 		expect(layout).toMatch(/\$lib\/admin\/test\/bootstrap/);
+		expect(layout).toMatch(/loadAppAuth|RayfinAdminData|getSharedAppMembership/);
+	});
+
+	it("production admin layout wires Fabric auth instead of a permanent Sign in stub", () => {
+		const layout = readFileSync(path.resolve("src/routes/admin/+layout.svelte"), "utf8");
+		const load = readFileSync(path.resolve("src/routes/admin/+layout.ts"), "utf8");
+		expect(load).toMatch(/loadAppAuth/);
+		expect(load).toMatch(/resolveAdminAccess/);
+		expect(layout).toMatch(/RayfinAdminData/);
+		expect(layout).not.toMatch(
+			/\{#if !isAdminTestMode\}[\s\S]*Sign in required[\s\S]*\{\/:else if !adminCtx\}/
+		);
+	});
+
+	it("root layout uses shared membership singleton in production path", () => {
+		const load = readFileSync(path.resolve("src/routes/+layout.ts"), "utf8");
+		expect(load).toMatch(/getSharedAppMembership/);
+		expect(load).not.toMatch(/new MemoryAdminMembership/);
+	});
+
+	it("__ADMIN_TEST__ installed once from root layout", () => {
+		const root = readFileSync(path.resolve("src/routes/+layout.svelte"), "utf8");
+		const admin = readFileSync(path.resolve("src/routes/admin/+layout.svelte"), "utf8");
+		expect(root).toMatch(/installAdminTestWindow/);
+		expect(admin).not.toMatch(/window\.__ADMIN_TEST__\s*=/);
+		expect(admin).toMatch(/__ADMIN_TEST__/);
 	});
 
 	it("public package exports Fabric auth helpers but not the fake Fabric harness", () => {

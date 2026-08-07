@@ -7,7 +7,8 @@ import type {
 	ListSort
 } from "./types.js";
 import { AdminError } from "./types.js";
-import { ADMIN_PAGE_SIZE, defaultSort } from "./conventions.js";
+import { defaultSort } from "./conventions.js";
+import { clampAdminListLimit } from "./list-limit.js";
 
 type Store = Map<string, Map<string, AdminRecord>>;
 
@@ -68,7 +69,7 @@ export class MemoryAdminData implements AdminData {
 		this.assertAllowed(resource);
 		const def = this.resources[resource]!;
 		const sort = request.sort ?? defaultSort(def);
-		const limit = clampLimit(request.limit);
+		const limit = clampAdminListLimit(request.limit);
 		const items = [...this.ensure(resource).values()].sort((a, b) => compare(a, b, sort));
 		let start = 0;
 		if (request.cursor) {
@@ -200,11 +201,6 @@ export class MemoryAdminData implements AdminData {
 			throw new AdminError("validation", "Validation failed", { fields, status: 400 });
 		}
 	}
-}
-
-function clampLimit(limit: number | undefined): number {
-	if (limit == null || !Number.isFinite(limit)) return ADMIN_PAGE_SIZE;
-	return Math.min(ADMIN_PAGE_SIZE, Math.max(1, Math.trunc(limit)));
 }
 
 function compare(a: AdminRecord, b: AdminRecord, sort: ListSort): number {

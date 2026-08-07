@@ -58,13 +58,10 @@ export function createTrustedMembershipService(options: {
 			if (!caller?.email || !normalizeEmail(caller.email)) {
 				return { allowed: false, status: 401 as const };
 			}
-			try {
-				await assertAdmin(caller);
+			if (isOwner(caller) || (await findByEmail(caller.email))) {
 				return { allowed: true, status: 200 as const };
-			} catch (error) {
-				const status = (error as { status?: number }).status ?? 500;
-				return { allowed: false, status };
 			}
+			return { allowed: false, status: 403 as const };
 		},
 		async list(caller: MembershipCaller) {
 			await assertAdmin(caller);

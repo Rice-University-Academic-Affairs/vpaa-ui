@@ -1,7 +1,7 @@
 import type { AdminData, AdminIdentity, AdminMembershipService } from "../types.js";
 
 export type AdminTestHarness = {
-	setIdentity: (identity: AdminIdentity | null) => void;
+	setIdentity: (identity: AdminIdentity | null) => void | Promise<void>;
 	resetData: () => void;
 	setForbidden: (resourceNames: string[]) => void;
 	membership: AdminMembershipService;

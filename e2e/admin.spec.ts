@@ -7,11 +7,11 @@ async function waitForAdminHarness(page: Page) {
 
 async function resetAsOwner(page: Page) {
 	await waitForAdminHarness(page);
-	await page.evaluate(() => {
+	await page.evaluate(async () => {
 		const harness = window.__ADMIN_TEST__!;
 		harness.resetData();
 		harness.setForbidden([]);
-		harness.setIdentity(harness.identities.TEST_OWNER);
+		await harness.setIdentity(harness.identities.TEST_OWNER);
 	});
 	await page.goto("/admin");
 	await expect(page.getByRole("heading", { name: "Admin" })).toBeVisible();
@@ -34,21 +34,37 @@ test.describe("Admin application E2E", () => {
 		await page.waitForFunction(() => Boolean(window.__ADMIN_TEST__));
 		await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Admin" })).toBeVisible();
 
-		await page.evaluate(() => {
+		await page.evaluate(async () => {
 			const harness = window.__ADMIN_TEST__!;
-			harness.setIdentity(harness.identities.TEST_NON_ADMIN);
+			await harness.setIdentity(harness.identities.TEST_NON_ADMIN);
 		});
-		await page.goto("/");
 		await expect(
 			page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Admin" })
 		).toHaveCount(0);
 		await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Showcase" })).toBeVisible();
 	});
 
+	test("E2E-NAV Sign in invalidates Admin tab without leaving /admin", async ({ page }) => {
+		await page.evaluate(async () => {
+			await window.__ADMIN_TEST__!.setIdentity(null);
+		});
+		await page.goto("/admin");
+		await expect(page.getByText("Sign in required")).toBeVisible();
+		await expect(
+			page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Admin" })
+		).toHaveCount(0);
+
+		await page.getByRole("button", { name: "Sign in" }).click();
+		await expect(page.getByRole("heading", { name: "Admin" })).toBeVisible();
+		await expect(
+			page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Admin" })
+		).toBeVisible();
+	});
+
 	test("E2E2 non-admin receives 403 on root and deep links", async ({ page }) => {
-		await page.evaluate(() => {
+		await page.evaluate(async () => {
 			const harness = window.__ADMIN_TEST__!;
-			harness.setIdentity(harness.identities.TEST_NON_ADMIN);
+			await harness.setIdentity(harness.identities.TEST_NON_ADMIN);
 		});
 		await page.goto("/admin");
 		await expect(page.getByRole("alert").filter({ hasText: "Forbidden" })).toBeVisible();
@@ -77,11 +93,10 @@ test.describe("Admin application E2E", () => {
 		await expect(page.locator("#member-email")).toHaveValue("admin@example.edu");
 		await expect(page.locator("#member-userId")).toHaveCount(0);
 
-		await page.evaluate(() => {
+		await page.evaluate(async () => {
 			const harness = window.__ADMIN_TEST__!;
-			harness.setIdentity(harness.identities.TEST_ADMIN);
+			await harness.setIdentity(harness.identities.TEST_ADMIN);
 		});
-		await page.goto("/");
 		await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Admin" })).toBeVisible();
 		await page.goto("/admin/admin-users");
 		await expect(page.getByRole("main").getByText("admin@example.edu")).toBeVisible();
@@ -194,8 +209,7 @@ test.describe("Admin application E2E", () => {
 		const trimmed = labels.map((label) => label.trim());
 		expect(trimmed).toEqual(["Admin Users", "Faculty Awards", "Products"]);
 
-		await page.evaluate(() => window.__ADMIN_TEST__!.setIdentity(null));
-		await page.goto("/");
+		await page.evaluate(async () => window.__ADMIN_TEST__!.setIdentity(null));
 		await expect(
 			page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Admin" })
 		).toHaveCount(0);
@@ -203,5 +217,8 @@ test.describe("Admin application E2E", () => {
 		await expect(page.getByText("Sign in required")).toBeVisible();
 		await page.getByRole("button", { name: "Sign in" }).click();
 		await expect(page.getByRole("heading", { name: "Admin" })).toBeVisible();
+		await expect(
+			page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Admin" })
+		).toBeVisible();
 	});
 });

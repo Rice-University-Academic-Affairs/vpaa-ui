@@ -7,32 +7,16 @@
 	import type { FacultyRow } from "$lib/types/drilldown.js";
 	import { faculty } from "./showcase.js";
 	import { buildPrimaryNavigation } from "$lib/auth/navigation.js";
-	import {
-		getTestAdminContext,
-		persistTestIdentity,
-		testIdentities
-	} from "$lib/admin/test/bootstrap.js";
+	import { isAdminTestMode } from "$lib/admin/mode.js";
+	import { getTestAdminContext } from "$lib/admin/test/bootstrap.js";
+	import { installAdminTestWindow } from "$lib/admin/test/install-harness.js";
 	import "./layout.css";
 
 	let { data, children }: { data: { isAdmin?: boolean; email?: string | null }; children: import("svelte").Snippet } =
 		$props();
 
-	const isAdminTestMode =
-		import.meta.env.DEV || import.meta.env.PUBLIC_ADMIN_TEST_MODE === "true";
-
-	if (isAdminTestMode && browser) {
-		const harness = getTestAdminContext();
-		window.__ADMIN_TEST__ = {
-			setIdentity: (next) => {
-				persistTestIdentity(next);
-				harness.identity = next;
-			},
-			resetData: () => harness.resetData(),
-			setForbidden: (names) => harness.setForbidden(names),
-			membership: harness.membership,
-			data: harness.data,
-			identities: testIdentities
-		};
+	if (isAdminTestMode() && browser) {
+		installAdminTestWindow(getTestAdminContext());
 	}
 
 	const navigation = $derived(buildPrimaryNavigation({ isAdmin: Boolean(data.isAdmin) }));

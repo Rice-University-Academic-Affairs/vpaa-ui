@@ -125,7 +125,9 @@ This package is a UI library + showcase. Document the integration contract for F
 - `src/lib/rayfin/{client,auth}.ts` + injectable Fabric init for authentic tests
 - Email-only `AdminIdentity` / membership / trusted helper (no bind-on-login)
 - `buildPrimaryNavigation({ isAdmin })` gates Admin tab
-- Root `+layout.ts` loads Fabric auth (or test harness) and sets `isAdmin`
+- Root `+layout.ts` loads Fabric auth (or test harness) and sets `isAdmin` via shared membership
+- Production `/admin` layout calls `loadAppAuth` + `resolveAdminAccess` and wires `RayfinAdminData` (not a permanent stub)
+- Harness `setIdentity` / Sign in call `invalidateAll()` so Admin nav stays in sync
 - E2E covers nav visibility + email allowlist membership
 
 ## Decision record
@@ -134,3 +136,4 @@ This package is a UI library + showcase. Document the integration contract for F
 - **AdminUsers table:** app-local allowlist, not Fabric invites.
 - **userId / bindOnLogin:** remove from access control and primary UX.
 - **Admin nav:** visible only after successful membership check.
+- **Showcase allowlist store:** `getSharedAppMembership()` until a Rayfin membership RPC client is wired.
