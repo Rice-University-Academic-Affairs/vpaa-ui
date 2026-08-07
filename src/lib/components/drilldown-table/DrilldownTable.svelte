@@ -10,6 +10,7 @@
 	import { deriveFilters, deriveSearch } from "$lib/components/data-table/derive-table-config.js";
 	import { stabilizeTableScroll } from "$lib/components/data-table/stabilize-table-scroll.js";
 	import { useDataTableState } from "$lib/components/data-table/use-data-table-state.svelte.js";
+	import { createDataTableId } from "$lib/components/data-table/data-table-id.js";
 	import type { Column } from "$lib/types/data-table.js";
 	import { enrichDepartments, enrichSchools } from "./derive-drilldown-rows.js";
 	import DrilldownBreadcrumb from "./DrilldownBreadcrumb.svelte";
@@ -57,6 +58,8 @@
 		onPathChange,
 		class: className
 	}: Props<TFaculty, TSchool, TDepartment> = $props();
+
+	const instanceId = createDataTableId("data-table");
 
 	const drilldown = useDrilldown(
 		() => departments,
@@ -290,6 +293,7 @@
 		{/if}
 
 		<DataTableToolbar
+			{instanceId}
 			{table}
 			search={activeSearch}
 			filters={activeFilters}

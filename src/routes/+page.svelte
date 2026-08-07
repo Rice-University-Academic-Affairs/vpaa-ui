@@ -38,7 +38,7 @@
 	];
 </script>
 
-<PageContainer>
+<PageContainer data-app-ready>
 	<PageHeader title="Component showcase" description="VPAA UI component library demo" />
 	<p class="caption mb-8">
 		Full-width navy top bar with optional global search and user badge. Navigation lives in the

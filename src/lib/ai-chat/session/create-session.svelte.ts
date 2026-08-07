@@ -29,11 +29,25 @@ export function createAiChatSession(options: CreateAiChatSessionOptions = {}) {
 	let threads = $state(controller.threads);
 	let selectedThreadId = $state(controller.selectedThreadId);
 	let chat = $state(controller.chat);
+	let isReady = $state(false);
+	let bootstrapError = $state<Error | null>(null);
 
 	async function syncFromController() {
 		threads = controller.threads;
 		selectedThreadId = controller.selectedThreadId;
 		chat = controller.chat;
+	}
+
+	async function finishBootstrap() {
+		try {
+			await controller.bootstrap();
+			bootstrapError = null;
+		} catch (error) {
+			bootstrapError = error instanceof Error ? error : new Error(String(error));
+		} finally {
+			isReady = true;
+			await syncFromController();
+		}
 	}
 
 	async function refreshThreads() {
@@ -57,7 +71,7 @@ export function createAiChatSession(options: CreateAiChatSessionOptions = {}) {
 		await syncFromController();
 	}
 
-	void controller.bootstrap().then(syncFromController).catch(syncFromController);
+	void finishBootstrap();
 
 	const selectedThread = $derived(
 		threads.find((thread) => thread.id === selectedThreadId) ?? null
@@ -75,6 +89,12 @@ export function createAiChatSession(options: CreateAiChatSessionOptions = {}) {
 		},
 		get selectedThread() {
 			return selectedThread;
+		},
+		get isReady() {
+			return isReady;
+		},
+		get bootstrapError() {
+			return bootstrapError;
 		},
 		refreshThreads,
 		selectThread,

@@ -125,6 +125,32 @@ describe("ChatSessionController", () => {
 		expect(controller.selectedThread).toMatchObject({ id: "thread-a" });
 	});
 
+	it("ignores selectThread for an unknown thread id", async () => {
+		const storage = createMemoryChatStorage([
+			{ id: "thread-a", title: "Alpha", updatedAt: "2026-03-03" }
+		]);
+		const controller = createController(storage, "thread-a");
+		const firstClient = createdClients[0];
+
+		await controller.selectThread("missing-thread");
+
+		expect(controller.selectedThreadId).toBe("thread-a");
+		expect(firstClient?.stop).not.toHaveBeenCalled();
+		expect(firstClient?.dispose).not.toHaveBeenCalled();
+		expect(createdClients).toHaveLength(1);
+	});
+
+	it("dispose is idempotent", async () => {
+		const controller = createController(createMemoryChatStorage(), "thread-a");
+		const client = createdClients[0];
+
+		controller.dispose();
+		controller.dispose();
+
+		expect(client?.stop).toHaveBeenCalledTimes(1);
+		expect(client?.dispose).toHaveBeenCalledTimes(1);
+	});
+
 	it("allows metadata sync after recreating a deleted thread with the same id", async () => {
 		const storage = createMemoryChatStorage([{ id: "thread-a", title: "Alpha", updatedAt: "2026-03-03" }]);
 		const controller = createController(storage, "thread-a");

@@ -4,14 +4,26 @@
 	import type { AiChatThread } from "$lib/types/chat.js";
 	import AiChatMessages from "./AiChatMessages.svelte";
 	import AiChatInput from "./AiChatInput.svelte";
+	import AiChatLoadingIndicator from "./AiChatLoadingIndicator.svelte";
 
 	type Props = {
-		chat: AiChatClient;
+		chat: AiChatClient | null;
 		thread?: AiChatThread | null;
+		isReady?: boolean;
+		bootstrapError?: Error | null;
 		class?: string;
 	};
 
-	let { chat, thread = null, class: className }: Props = $props();
+	let {
+		chat,
+		thread = null,
+		isReady = true,
+		bootstrapError = null,
+		class: className
+	}: Props = $props();
+
+	const isWaitingForResponse = $derived(Boolean(chat?.isLoading));
+	const inputDisabled = $derived(!isReady || Boolean(bootstrapError) || isWaitingForResponse);
 </script>
 
 <section class={cn("flex min-w-0 flex-1 flex-col bg-background", className)}>
@@ -21,16 +33,28 @@
 		</header>
 	{/if}
 
-	{#if chat.error}
+	{#if bootstrapError}
 		<div class="border-b border-destructive/20 bg-destructive/5 px-6 py-3 text-sm text-destructive">
-			{chat.error.message}
+			{bootstrapError.message}
 		</div>
 	{/if}
 
-	<AiChatMessages messages={chat.messages} isLoading={chat.isLoading} />
+	{#if !isReady}
+		<div class="flex flex-1 items-center justify-center px-6 py-8">
+			<AiChatLoadingIndicator />
+		</div>
+	{:else if chat}
+		{#if chat.error}
+			<div class="border-b border-destructive/20 bg-destructive/5 px-6 py-3 text-sm text-destructive">
+				{chat.error.message}
+			</div>
+		{/if}
 
-	<AiChatInput
-		disabled={chat.isLoading}
-		onSubmit={(message) => chat.sendMessage(message)}
-	/>
+		<AiChatMessages messages={chat.messages} isLoading={chat.isLoading} />
+
+		<AiChatInput
+			disabled={inputDisabled}
+			onSubmit={(message) => chat.sendMessage(message)}
+		/>
+	{/if}
 </section>

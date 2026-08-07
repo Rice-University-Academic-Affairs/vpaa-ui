@@ -10,6 +10,7 @@
 	import type { DataTableState } from "./use-data-table-state.svelte.js";
 
 	type Props = {
+		instanceId: string;
 		table: DataTableInstance<TData>;
 		search?: DataTableSearch;
 		filters?: DataTableFilter[];
@@ -20,6 +21,7 @@
 	};
 
 	let {
+		instanceId,
 		table,
 		search,
 		filters = [],
@@ -28,6 +30,8 @@
 		onQueryChange,
 		onFilterChange
 	}: Props = $props();
+
+	const searchInputId = $derived(`${instanceId}-search`);
 
 	const showToolbar = $derived(
 		Boolean(
@@ -45,9 +49,9 @@
 				<SearchIcon
 					class="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
 				/>
-				<label class="sr-only" for="data-table-search">{search.placeholder ?? "Search"}</label>
+				<label class="sr-only" for={searchInputId}>{search.placeholder ?? "Search"}</label>
 				<Input
-					id="data-table-search"
+					id={searchInputId}
 					class="h-9 ps-8 {tableState.searchQuery ? 'pe-8' : ''}"
 					placeholder={search.placeholder ?? "Search…"}
 					value={tableState.searchQuery}
@@ -73,7 +77,7 @@
 		{/if}
 
 		{#if filters.length > 0}
-			<DataTableFilterPopover {filters} {tableState} {onFilterChange} />
+			<DataTableFilterPopover {instanceId} {filters} {tableState} {onFilterChange} />
 		{/if}
 
 		{#if showSort}

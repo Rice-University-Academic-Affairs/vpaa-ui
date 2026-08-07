@@ -4,7 +4,6 @@
 	import type { AiChatSession } from "$lib/ai-chat/session/create-session.svelte.js";
 	import { createShowcaseChatSessionIfAvailable } from "./showcase/chat.js";
 	import type { AppNavGroup } from "$lib/types/navigation.js";
-	import type { FacultyRow } from "$lib/types/drilldown.js";
 	import { faculty } from "./showcase.js";
 	import LayoutDashboard from "@lucide/svelte/icons/layout-dashboard";
 	import "./layout.css";
@@ -18,6 +17,7 @@
 	];
 
 	let chatSession = $state<AiChatSession | undefined>(undefined);
+	let searchSelection = $state("");
 
 	$effect(() => {
 		if (!chatSession) {
@@ -26,9 +26,12 @@
 	});
 
 	function handleSearchSelect(item: unknown) {
-		console.log("Selected:", (item as FacultyRow).name);
+		const name = (item as { name?: string }).name;
+		searchSelection = name ?? "";
 	}
 </script>
+
+<span data-search-result={searchSelection} class="sr-only" aria-live="polite"></span>
 
 <AppShell
 	appName="VPAA UI"

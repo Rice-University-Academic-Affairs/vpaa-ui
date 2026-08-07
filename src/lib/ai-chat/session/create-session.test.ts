@@ -113,6 +113,17 @@ describe("createAiChatSession", () => {
 		expect(createAiChatMock).toHaveBeenCalledTimes(1);
 	});
 
+	it("selectThread ignores unknown thread ids", async () => {
+		const storage = createMemoryChatStorage([{ id: "thread-a", title: "Alpha", updatedAt: "2026-03-03" }]);
+		const session = await mountSession({ storage, threadId: "thread-a" });
+
+		await session.selectThread("missing-thread");
+		await flushAsyncWork();
+
+		expect(session.selectedThreadId).toBe("thread-a");
+		expect(createAiChatMock).toHaveBeenCalledTimes(1);
+	});
+
 	it("createThread adds a thread and selects it", async () => {
 		const storage = createMemoryChatStorage([{ id: "thread-a", title: "Alpha", updatedAt: "2026-03-03" }]);
 		const session = await mountSession({ storage, threadId: "thread-a" });
@@ -261,7 +272,16 @@ describe("createAiChatSession", () => {
 
 		expect(session?.chat).toBeDefined();
 		await flushAsyncWork();
-		expect(session?.chat).toBeDefined();
+		expect(session?.isReady).toBe(true);
+		expect(session?.bootstrapError?.message).toBe("storage offline");
+	});
+
+	it("marks the session ready after bootstrap succeeds", async () => {
+		const storage = createMemoryChatStorage([{ id: "thread-a", title: "Alpha", updatedAt: "2026-03-03" }]);
+		const session = await mountSession({ storage, threadId: "thread-a" });
+
+		expect(session.isReady).toBe(true);
+		expect(session.bootstrapError).toBeNull();
 	});
 
 	it("syncs metadata from the finishing client messages via onFinish", async () => {
@@ -350,6 +370,18 @@ describe("createAiChatSession", () => {
 
 		expect(client?.stop).toHaveBeenCalled();
 		expect(client?.dispose).toHaveBeenCalled();
+	});
+
+	it("dispose is idempotent", async () => {
+		const storage = createMemoryChatStorage([{ id: "thread-a", title: "Alpha", updatedAt: "2026-03-03" }]);
+		const session = await mountSession({ storage, threadId: "thread-a" });
+		const client = createdClients[0];
+
+		session.dispose();
+		session.dispose();
+
+		expect(client?.stop).toHaveBeenCalledTimes(1);
+		expect(client?.dispose).toHaveBeenCalledTimes(1);
 	});
 
 	it("defaults chat to /api/chat", async () => {

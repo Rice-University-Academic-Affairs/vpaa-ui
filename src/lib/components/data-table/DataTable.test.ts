@@ -1,11 +1,27 @@
-import { cleanup, fireEvent, render, within } from "@testing-library/svelte";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/svelte";
 import { userEvent } from "@testing-library/user-event";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DataTable from "./DataTable.svelte";
+import DualTableHarness from "./DualTableHarness.svelte";
 import { facultyColumns, facultyData } from "../../../test/table-fixtures.js";
 
 afterEach(() => {
 	cleanup();
+	vi.restoreAllMocks();
+});
+
+beforeEach(() => {
+	vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({
+		width: 120,
+		height: 32,
+		top: 0,
+		left: 0,
+		bottom: 32,
+		right: 120,
+		x: 0,
+		y: 0,
+		toJSON: () => ({})
+	});
 });
 
 function renderFacultyTable(
@@ -101,6 +117,48 @@ describe("DataTable", () => {
 		expect(table.getByText(/^Page 1 of/)).toBeInTheDocument();
 	});
 
+	it("renders the sort menu trigger for sortable columns", () => {
+		const { table } = renderFacultyTable();
+
+		expect(table.getByRole("button", { name: "Name" })).toBeInTheDocument();
+	});
+
+	it("clamps pagination when a filter applied on page 2 leaves only one page", async () => {
+		const { table } = renderFacultyTable();
+
+		await userEvent.click(table.getByRole("button", { name: "Next" }));
+		expect(table.getByText("Page 2 of 2")).toBeInTheDocument();
+
+		await userEvent.click(table.getByRole("button", { name: "Filter" }));
+		await userEvent.click(await screen.findByLabelText("Tenured"));
+
+		expect(table.getByText("Page 1 of 1")).toBeInTheDocument();
+		expect(getVisibleFacultyNames(table.getByRole("table"))).toHaveLength(6);
+	});
+
+	it("renders fractional metric values in the table", () => {
+		const { table } = renderFacultyTable();
+
+		expect(table.getByText("0.75")).toBeInTheDocument();
+	});
+
+	it("filters rows from the status filter popover", async () => {
+		const { table } = renderFacultyTable();
+
+		await userEvent.click(table.getByRole("button", { name: "Filter" }));
+		await userEvent.click(await screen.findByLabelText("Tenured"));
+
+		expect(getVisibleFacultyNames(table.getByRole("table"))).toEqual([
+			"Dr. Elena Martinez",
+			"Dr. James Chen",
+			"Dr. Michael Okonkwo",
+			"Dr. Anna Bergström",
+			"Dr. Lisa Thompson",
+			"Dr. Emily Foster"
+		]);
+		expect(table.getByText("Showing 6")).toBeInTheDocument();
+	});
+
 	it("shows the empty state when no rows match", async () => {
 		const { table } = renderFacultyTable({
 			searchPlaceholder: "Search faculty…",
@@ -114,5 +172,27 @@ describe("DataTable", () => {
 		expect(
 			table.getByText("No results match these filters. Try clearing one.")
 		).toBeInTheDocument();
+	});
+
+	it("uses unique search input ids when multiple tables render", () => {
+		const view = render(DualTableHarness);
+		const inputs = within(view.container).getAllByLabelText("Search faculty…");
+
+		expect(inputs).toHaveLength(2);
+		expect(inputs[0]?.id).not.toBe(inputs[1]?.id);
+	});
+
+	it("uses unique filter checkbox ids when multiple tables render", async () => {
+		const view = render(DualTableHarness);
+		const filterButtons = within(view.container).getAllByRole("button", { name: "Filter" });
+
+		await userEvent.click(filterButtons[0]!);
+		const firstId = (await screen.findByLabelText("Tenured")).id;
+		await userEvent.keyboard("{Escape}");
+
+		await userEvent.click(filterButtons[1]!);
+		const secondId = (await screen.findByLabelText("Tenured")).id;
+
+		expect(firstId).not.toBe(secondId);
 	});
 });

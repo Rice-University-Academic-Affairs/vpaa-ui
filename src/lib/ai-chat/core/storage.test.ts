@@ -110,6 +110,18 @@ describe("canUseLocalChatStorage", () => {
 	it("returns true when localStorage is available", () => {
 		expect(canUseLocalChatStorage()).toBe(true);
 	});
+
+	it("returns false when localStorage writes fail", () => {
+		vi.stubGlobal("localStorage", {
+			setItem: () => {
+				throw new Error("quota exceeded");
+			},
+			removeItem: () => {}
+		});
+
+		expect(canUseLocalChatStorage()).toBe(false);
+		vi.unstubAllGlobals();
+	});
 });
 
 describe("createLocalChatStorage", () => {

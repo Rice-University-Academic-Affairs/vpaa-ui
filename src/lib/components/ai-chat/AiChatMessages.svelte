@@ -4,6 +4,8 @@
 	import { cn } from "$lib/utils.js";
 	import AiChatMessage from "./AiChatMessage.svelte";
 	import AiChatEmptyState from "./AiChatEmptyState.svelte";
+	import AiChatLoadingIndicator from "./AiChatLoadingIndicator.svelte";
+	import { scrollMessagesToBottom } from "./scroll-messages-to-bottom.js";
 
 	type Props = {
 		messages: readonly UIMessage[];
@@ -12,9 +14,17 @@
 	};
 
 	let { messages, isLoading = false, class: className }: Props = $props();
+
+	let viewport = $state<HTMLElement | null>(null);
+
+	$effect(() => {
+		messages.length;
+		isLoading;
+		scrollMessagesToBottom(viewport);
+	});
 </script>
 
-<ScrollArea.Root class={cn("flex-1", className)}>
+<ScrollArea.Root bind:viewportRef={viewport} class={cn("flex-1", className)}>
 	<div class="flex flex-col gap-5 px-6 py-6">
 		{#if messages.length === 0 && !isLoading}
 			<AiChatEmptyState />
@@ -23,11 +33,7 @@
 				<AiChatMessage {message} />
 			{/each}
 			{#if isLoading}
-				<div class="flex justify-start">
-					<div class="rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-						Thinking…
-					</div>
-				</div>
+				<AiChatLoadingIndicator />
 			{/if}
 		{/if}
 	</div>

@@ -12,6 +12,7 @@
 	import { deriveFilters, deriveSearch } from "./derive-table-config.js";
 	import { stabilizeTableScroll } from "./stabilize-table-scroll.js";
 	import { useDataTableState } from "./use-data-table-state.svelte.js";
+	import { createDataTableId } from "./data-table-id.js";
 	import { tick } from "svelte";
 
 	type Props = {
@@ -33,6 +34,8 @@
 		searchPlaceholder,
 		class: className
 	}: Props = $props();
+
+	const instanceId = createDataTableId("data-table");
 
 	const columnDefs = $derived(buildColumnDefs(columns, data));
 	const search = $derived(deriveSearch(columns, searchPlaceholder));
@@ -105,6 +108,7 @@
 
 	<DataTableCard>
 		<DataTableToolbar
+			{instanceId}
 			{table}
 			{search}
 			{filters}

@@ -16,6 +16,7 @@
 <Sheet.Root bind:open>
 	<Sheet.Content
 		side="right"
+		portalProps={{ disabled: import.meta.env.VITEST }}
 		class="flex h-full w-full max-w-full flex-col gap-0 p-0 motion-reduce:transition-none data-[side=right]:w-full data-[side=right]:max-w-full sm:data-[side=right]:w-[40vw] sm:data-[side=right]:min-w-[520px] sm:data-[side=right]:max-w-[40vw]"
 	>
 		<Sheet.Header class="shrink-0 border-b border-border px-6 py-4">
@@ -33,9 +34,15 @@
 				threads={session.threads}
 				selectedThreadId={session.selectedThreadId}
 				onThreadSelect={(threadId) => void session.selectThread(threadId)}
+				onThreadDelete={(threadId) => void session.deleteThread(threadId)}
 				onNewThread={() => void session.createThread()}
 			/>
-			<AiChatView chat={session.chat} thread={session.selectedThread} />
+			<AiChatView
+				chat={session.chat}
+				thread={session.selectedThread}
+				isReady={session.isReady}
+				bootstrapError={session.bootstrapError}
+			/>
 		</div>
 	</Sheet.Content>
 </Sheet.Root>
