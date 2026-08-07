@@ -29,14 +29,17 @@ test.describe("Admin application E2E", () => {
 		await expect(page.getByRole("link", { name: "Faculty Awards", exact: true })).toBeVisible();
 	});
 
-	test("E2E2 non-admin receives 403", async ({ page }) => {
+	test("E2E2 non-admin receives 403 on root and deep links", async ({ page }) => {
 		await page.evaluate(() => {
 			const harness = window.__ADMIN_TEST__!;
 			harness.setIdentity(harness.identities.TEST_NON_ADMIN);
 		});
-		await page.reload();
+		await page.goto("/admin");
 		await expect(page.getByRole("alert").filter({ hasText: "Forbidden" })).toBeVisible();
-		await expect(page.getByText("You do not have administrator access.")).toBeVisible();
+		await page.goto("/admin/products");
+		await expect(page.getByRole("alert").filter({ hasText: "Forbidden" })).toBeVisible();
+		await page.goto("/admin/products/new");
+		await expect(page.getByRole("alert").filter({ hasText: "Forbidden" })).toBeVisible();
 	});
 
 	test("E2E3 owner appears and cannot be removed", async ({ page }) => {
@@ -72,6 +75,13 @@ test.describe("Admin application E2E", () => {
 		await page.evaluate(async () => {
 			const harness = window.__ADMIN_TEST__!;
 			await harness.membership.bindOnLogin(harness.identities.TEST_INVITEE);
+			harness.setIdentity(harness.identities.TEST_INVITEE);
+		});
+		await page.goto("/admin");
+		await expect(page.getByRole("heading", { name: "Admin" })).toBeVisible();
+		await page.evaluate(() => {
+			const harness = window.__ADMIN_TEST__!;
+			harness.setIdentity(harness.identities.TEST_ADMIN);
 		});
 		await page.goto("/admin/admin-users");
 		await page.getByText("invitee@example.edu").click();
@@ -83,39 +93,54 @@ test.describe("Admin application E2E", () => {
 
 	test("E2E7-E2E9 list, pagination, sort", async ({ page }) => {
 		await page.getByRole("link", { name: "Products", exact: true }).click();
+		await expect(page.locator("tbody tr")).toHaveCount(25);
 		await expect(page.getByRole("button", { name: "Next" })).toBeEnabled();
 		const firstId = await page.locator("tbody tr").first().locator("td").first().textContent();
 		await page.getByRole("button", { name: "Next" }).click();
+		await expect(page.locator("tbody tr")).toHaveCount(5);
 		const secondId = await page.locator("tbody tr").first().locator("td").first().textContent();
 		expect(secondId).not.toBe(firstId);
 		await page.getByRole("button", { name: "Previous" }).click();
+		await expect(page.locator("tbody tr")).toHaveCount(25);
 		await expect(page.locator("tbody tr").first().locator("td").first()).toHaveText(firstId ?? "");
+		await page.getByRole("button", { name: "Next" }).click();
 		await page.getByRole("button", { name: "Name" }).click();
-		await expect(page.getByText("↑").or(page.getByText("↓"))).toBeVisible();
+		await expect(page.getByRole("button", { name: /Name/ })).toContainText(/↑|↓/);
+		await expect(page.locator("tbody tr")).toHaveCount(25);
 	});
 
 	test("E2E10-E2E13 create, edit, validation, delete", async ({ page }) => {
 		await page.getByRole("link", { name: "Products", exact: true }).click();
 		await page.getByRole("link", { name: "New" }).click();
 		await page.locator("#field-name").fill("Kept Name");
-		await page.locator("#field-priceInCents").fill("");
+		await page.locator("#field-priceInCents").fill("12.5");
 		await page.getByRole("button", { name: "Create" }).click();
-		await expect(page.getByText("Required")).toBeVisible();
+		await expect(page.getByText("Must be an integer")).toBeVisible();
 		await expect(page.locator("#field-name")).toHaveValue("Kept Name");
 
 		await page.locator("#field-priceInCents").fill("1250");
 		await page.locator("#field-description").fill("A description");
 		await page.getByRole("button", { name: "Create" }).click();
-		await expect(page).toHaveURL(/\/admin\/products\/.+/);
+		await expect(page).toHaveURL(/\/admin\/products\/(?!new$)[^/]+$/);
+		const editUrl = page.url();
+		expect(editUrl).not.toContain("/new");
 		await expect(page.locator("#field-name")).toHaveValue("Kept Name");
 
 		await page.locator("#field-name").fill("Renamed Product");
 		await page.getByRole("button", { name: "Save" }).click();
+		await page.reload();
 		await expect(page.locator("#field-name")).toHaveValue("Renamed Product");
 
 		await page.getByRole("button", { name: "Delete", exact: true }).click();
+		await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+		await expect(page.getByRole("dialog")).toHaveCount(0);
+		await expect(page).toHaveURL(editUrl);
+		await expect(page.locator("#field-name")).toHaveValue("Renamed Product");
+		await page.getByRole("button", { name: "Delete", exact: true }).click();
 		await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
 		await expect(page).toHaveURL(/\/admin\/products$/);
+		await page.goto(editUrl);
+		await expect(page.getByRole("alert").filter({ hasText: "Not found" })).toBeVisible();
 	});
 
 	test("E2E14 forbidden entity permission failure", async ({ page }) => {

@@ -2,7 +2,7 @@ import {
 	isValidEmail,
 	normalizeEmail,
 	requireOwnerAdminEmail
-} from "../../src/lib/admin/owner-config.js";
+} from "../../../src/lib/admin/owner-config.js";
 
 export type MembershipCaller = {
 	userId: string;
@@ -20,9 +20,14 @@ export type MembershipRecord = {
 
 export type MembershipStore = {
 	list(): Promise<Array<Omit<MembershipRecord, "isOwner">>>;
-	create(row: Omit<MembershipRecord, "isOwner" | "id"> & { id?: string }): Promise<Omit<MembershipRecord, "isOwner">>;
+	create(
+		row: Omit<MembershipRecord, "isOwner" | "id"> & { id?: string }
+	): Promise<Omit<MembershipRecord, "isOwner">>;
 	remove(id: string): Promise<void>;
-	update(id: string, patch: Partial<Omit<MembershipRecord, "isOwner">>): Promise<Omit<MembershipRecord, "isOwner">>;
+	update(
+		id: string,
+		patch: Partial<Omit<MembershipRecord, "isOwner">>
+	): Promise<Omit<MembershipRecord, "isOwner">>;
 };
 
 export function createTrustedMembershipService(options: {
@@ -31,28 +36,34 @@ export function createTrustedMembershipService(options: {
 }) {
 	const ownerEmail = requireOwnerAdminEmail(options.ownerEmail);
 
+	function isOwner(caller: MembershipCaller) {
+		return normalizeEmail(caller.email) === ownerEmail;
+	}
+
+	async function findMember(caller: MembershipCaller) {
+		const members = await options.store.list();
+		const byUser = members.find((row) => Boolean(row.userId) && row.userId === caller.userId);
+		if (byUser) return byUser;
+		return members.find(
+			(row) => !row.userId && normalizeEmail(row.email) === normalizeEmail(caller.email)
+		);
+	}
+
 	async function assertAdmin(caller: MembershipCaller | null) {
-		if (!caller) {
+		if (!caller?.userId || !caller.email) {
 			const error = new Error("Unauthorized");
 			(error as Error & { status: number }).status = 401;
 			throw error;
 		}
-		if (normalizeEmail(caller.email) === ownerEmail) return;
-		const members = await options.store.list();
-		const found = members.some(
-			(row) =>
-				row.userId === caller.userId || normalizeEmail(row.email) === normalizeEmail(caller.email)
-		);
-		if (!found) {
-			const error = new Error("Forbidden");
-			(error as Error & { status: number }).status = 403;
-			throw error;
-		}
+		if (isOwner(caller) || (await findMember(caller))) return;
+		const error = new Error("Forbidden");
+		(error as Error & { status: number }).status = 403;
+		throw error;
 	}
 
 	return {
 		async check(caller: MembershipCaller | null) {
-			if (!caller) return { allowed: false, status: 401 as const };
+			if (!caller?.userId || !caller.email) return { allowed: false, status: 401 as const };
 			try {
 				await assertAdmin(caller);
 				return { allowed: true, status: 200 as const };
@@ -108,6 +119,26 @@ export function createTrustedMembershipService(options: {
 			await assertAdmin(caller);
 			if (id === "owner") {
 				const error = new Error("Owner cannot be deleted");
+				(error as Error & { status: number }).status = 409;
+				throw error;
+			}
+			const members = await options.store.list();
+			const existing = members.find((row) => row.id === id);
+			if (!existing) {
+				const error = new Error("Administrator not found");
+				(error as Error & { status: number }).status = 404;
+				throw error;
+			}
+			if (normalizeEmail(existing.email) === ownerEmail) {
+				const error = new Error("Owner cannot be deleted");
+				(error as Error & { status: number }).status = 409;
+				throw error;
+			}
+			if (
+				existing.userId === caller.userId ||
+				normalizeEmail(existing.email) === normalizeEmail(caller.email)
+			) {
+				const error = new Error("Administrators cannot remove themselves");
 				(error as Error & { status: number }).status = 409;
 				throw error;
 			}

@@ -1,8 +1,10 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AdminData, AdminResources } from "./types.js";
 import { MemoryAdminData } from "./memory-admin-data.js";
+import { RayfinAdminData, type RayfinDataClient } from "./rayfin-admin-data.js";
 import { createProductSeed } from "./test/identities.js";
 import { ADMIN_PAGE_SIZE } from "./conventions.js";
+import { AdminError } from "./types.js";
 
 export const contractResources: AdminResources = {
 	Product: {
@@ -13,6 +15,14 @@ export const contractResources: AdminResources = {
 			{ name: "name", type: "string", nullable: false, readOnly: false, generated: false },
 			{ name: "description", type: "text", nullable: true, readOnly: false, generated: false },
 			{ name: "priceInCents", type: "integer", nullable: false, readOnly: false, generated: false }
+		]
+	},
+	AdminUser: {
+		name: "AdminUser",
+		slug: "admin-users",
+		fields: [
+			{ name: "id", type: "string", nullable: false, readOnly: true, generated: true, primaryKey: true },
+			{ name: "email", type: "string", nullable: false, readOnly: false, generated: false }
 		]
 	}
 };
@@ -73,7 +83,26 @@ export function defineAdminDataContract(name: string, factory: () => AdminData) 
 				sort: { field: "id", direction: "asc" }
 			});
 			expect(second.items).toHaveLength(5);
-			expect(second.items[0]?.id).not.toBe(first.items[0]?.id);
+			const firstIds = new Set(first.items.map((item) => item.id));
+			for (const item of second.items) expect(firstIds.has(item.id)).toBe(false);
+			const back = await data.list("Product", {
+				limit: ADMIN_PAGE_SIZE,
+				sort: { field: "id", direction: "asc" }
+			});
+			expect(back.items.map((item) => item.id)).toEqual(first.items.map((item) => item.id));
+		});
+
+		it("rejects a missing pagination cursor instead of rewinding (H1)", async () => {
+			for (const row of createProductSeed(30)) {
+				await data.create("Product", row);
+			}
+			await expect(
+				data.list("Product", {
+					limit: ADMIN_PAGE_SIZE,
+					cursor: "missing-cursor",
+					sort: { field: "id", direction: "asc" }
+				})
+			).rejects.toMatchObject({ kind: "not_found" });
 		});
 
 		it("generates missing UUID primary keys (D9)", async () => {
@@ -81,6 +110,12 @@ export function defineAdminDataContract(name: string, factory: () => AdminData) 
 			expect(created.id).toMatch(
 				/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 			);
+		});
+
+		it("forbids AdminUser mutations through the data layer (H3)", async () => {
+			await expect(data.create("AdminUser", { email: "x@example.edu" })).rejects.toMatchObject({
+				kind: "forbidden"
+			});
 		});
 	});
 }
@@ -102,5 +137,59 @@ describe("MemoryAdminData extras", () => {
 		expect((await open.list("Product")).items).toHaveLength(2);
 		open.reset();
 		expect((await open.list("Product")).items).toHaveLength(0);
+	});
+
+	it("rejects unknown seed resources", () => {
+		expect(
+			() =>
+				new MemoryAdminData({
+					resources: contractResources,
+					seed: { Prodcut: createProductSeed(1) } as never
+				})
+		).toThrow(AdminError);
+	});
+});
+
+describe("RayfinAdminData SDK dispatch", () => {
+	it("calls update/delete with where objects and maps GraphQL errors", async () => {
+		const update = vi.fn(async (_where: { id: string }, values: Record<string, unknown>) => ({
+			id: "1",
+			...values
+		}));
+		const del = vi.fn(async (_where: { id: string }) => undefined);
+		const findById = vi.fn(async () => null);
+		const create = vi.fn(async (values: Record<string, unknown>) => ({ id: "1", ...values }));
+		const executePaginated = vi.fn(async () => ({ items: [], hasNextPage: false }));
+		const after = vi.fn(() => ({ executePaginated }));
+		const first = vi.fn(() => ({ after, executePaginated }));
+		const orderBy = vi.fn(() => ({ first }));
+		const select = vi.fn(() => ({ orderBy }));
+
+		const client: RayfinDataClient = {
+			data: {
+				Product: { select, orderBy: orderBy as never, first: first as never, findById, create, update, delete: del }
+			}
+		};
+		const data = new RayfinAdminData(client, contractResources);
+		await data.update("Product", "1", { name: "N" });
+		expect(update).toHaveBeenCalledWith({ id: "1" }, { name: "N" });
+		await data.remove("Product", "1");
+		expect(del).toHaveBeenCalledWith({ id: "1" });
+
+		const failing: RayfinDataClient = {
+			data: {
+				Product: {
+					select,
+					findById,
+					create: async () => {
+						throw new Error("GraphQL errors: permission denied");
+					},
+					update,
+					delete: del
+				}
+			}
+		};
+		const guarded = new RayfinAdminData(failing, contractResources);
+		await expect(guarded.create("Product", { name: "X" })).rejects.toMatchObject({ kind: "forbidden" });
 	});
 });

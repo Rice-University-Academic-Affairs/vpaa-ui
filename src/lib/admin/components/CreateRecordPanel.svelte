@@ -60,7 +60,7 @@
 	}
 </script>
 
-{#if error && error.kind !== "validation"}
+{#if error && (error.kind !== "validation" || Object.keys(fieldErrors).length === 0)}
 	<div class="mb-4">
 		<AdminErrorView title={error.title} message={error.message} kind={error.kind} />
 	</div>

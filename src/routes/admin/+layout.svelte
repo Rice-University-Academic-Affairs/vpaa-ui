@@ -30,7 +30,9 @@
 					persistTestIdentity(next);
 					if (adminCtx) adminCtx.identity = next;
 				},
-				resetData: () => adminCtx?.resetData(),
+				resetData: () => {
+					adminCtx?.resetData();
+				},
 				setForbidden: (names) => adminCtx?.setForbidden(names),
 				membership: adminCtx.membership,
 				data: adminCtx.data,

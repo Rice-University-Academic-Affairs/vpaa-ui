@@ -3,13 +3,25 @@ import { mapAdminError } from "./errors.js";
 import { AdminError } from "./types.js";
 
 describe("errors", () => {
-	it("maps Rayfin-style errors to safe UI states (E1)", () => {
+	it("maps AdminError kinds to safe UI states (E1)", () => {
 		expect(mapAdminError(new AdminError("validation", "Bad", { fields: { name: "Required" } }))).toMatchObject({
 			kind: "validation",
 			fields: { name: "Required" }
 		});
 		expect(mapAdminError(new AdminError("forbidden", "Nope"))).toMatchObject({ kind: "forbidden" });
+		expect(mapAdminError(new AdminError("unexpected", "secret internals"))).toMatchObject({
+			kind: "unexpected",
+			message: "Something went wrong. Please try again."
+		});
+	});
+
+	it("maps SDK-shaped GraphQL errors without requiring a status field", () => {
+		expect(mapAdminError(new Error("GraphQL errors: permission denied"))).toMatchObject({
+			kind: "forbidden"
+		});
+		expect(mapAdminError(new Error("GraphQL errors: validation failed"))).toMatchObject({
+			kind: "validation"
+		});
 		expect(mapAdminError({ status: 403, message: "denied" })).toMatchObject({ kind: "forbidden" });
-		expect(mapAdminError(new Error("boom"))).toMatchObject({ kind: "unexpected" });
 	});
 });

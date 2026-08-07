@@ -91,7 +91,7 @@
 	}
 </script>
 
-{#if formError && formError.kind !== "validation"}
+{#if formError && (formError.kind !== "validation" || Object.keys(fieldErrors).length === 0)}
 	<div class="mb-4">
 		<AdminErrorView title={formError.title} message={formError.message} kind={formError.kind} />
 	</div>
@@ -110,7 +110,7 @@
 				</div>
 			{/each}
 		</div>
-		{#if !member.isOwner}
+		{#if !member.isOwner && member.userId !== admin.identity?.userId && member.email !== admin.identity?.email}
 			<div class="border-destructive/20 flex flex-col gap-3 border-t pt-6">
 				<p class="text-sm font-medium">Remove administrator</p>
 				<Button variant="destructive" onclick={() => (deleteOpen = true)} disabled={deleting}>

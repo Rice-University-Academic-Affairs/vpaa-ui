@@ -71,8 +71,8 @@
 		{:else if control === "number-integer"}
 			<Input
 				id={inputId}
-				type="number"
-				step="1"
+				type="text"
+				inputmode="numeric"
 				value={String(value ?? "")}
 				oninput={(event: Event & { currentTarget: HTMLInputElement }) =>
 					onValueChange(event.currentTarget.value)}
@@ -82,8 +82,8 @@
 		{:else if control === "number-decimal"}
 			<Input
 				id={inputId}
-				type="number"
-				step="any"
+				type="text"
+				inputmode="decimal"
 				value={String(value ?? "")}
 				oninput={(event: Event & { currentTarget: HTMLInputElement }) =>
 					onValueChange(event.currentTarget.value)}

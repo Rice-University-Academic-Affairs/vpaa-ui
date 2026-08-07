@@ -1,10 +1,19 @@
 import assert from "node:assert/strict";
+import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { describe, it } from "node:test";
 import { entity } from "@microsoft/rayfin-core";
 import { AdminUser } from "../rayfin/data/AdminUser.js";
 import { FacultyAward } from "../rayfin/data/FacultyAward.js";
 import { Product } from "../rayfin/data/Product.js";
-import { extractResources, formatResourcesModule, GeneratorError } from "../src/lib/admin/generator/extract.js";
+import { ProductCategory } from "../rayfin/data/ProductCategory.js";
+import {
+	extractResources,
+	formatResourcesModule,
+	GeneratorError
+} from "../src/lib/admin/generator/extract.js";
+import { checkAdminResources, generateAdminResources } from "./generate-admin.js";
 
 describe("admin generator", () => {
 	it("finds entities and preserves field order (G1, G2)", () => {
@@ -57,28 +66,46 @@ describe("admin generator", () => {
 	});
 
 	it("fails clearly on unsupported constructs (G8)", () => {
-		@entity()
-		class Broken {}
-		assert.doesNotThrow(() => extractResources({ entities: [Broken as never] }));
+		expectThrowUnsupported();
 		assert.throws(
 			() => extractResources({ entities: [{ name: "Nope" } as never] }),
 			GeneratorError
 		);
 	});
 
-	it("detects stale generated output (G9, S1)", () => {
-		const resources = extractResources({ entities: [Product, FacultyAward, AdminUser] });
-		const expected = formatResourcesModule(resources);
-		const stale = expected + "\n// stale\n";
-		assert.notEqual(stale, expected);
-	});
-
-	it("omits relationship fields from registry (G6)", async () => {
-		const { ProductCategory } = await import("../rayfin/data/ProductCategory.js");
+	it("omits relationship navigation properties in v1 (G6)", () => {
 		const resources = extractResources({ entities: [ProductCategory] });
 		assert.deepEqual(
 			resources.ProductCategory!.fields.map((f) => f.name),
 			["id", "name"]
 		);
+		assert.ok(!resources.ProductCategory!.fields.some((f) => f.name === "product"));
+	});
+
+	it("checkAdminResources rejects stale filesystem output (G9, S1)", async () => {
+		const dir = await mkdtemp(path.join(os.tmpdir(), "admin-check-"));
+		const outFile = path.join(dir, "resources.ts");
+		const resources = extractResources({ entities: [Product, FacultyAward, AdminUser] });
+		await writeFile(outFile, formatResourcesModule(resources) + "\n// stale\n", "utf8");
+		const previous = process.cwd();
+		try {
+			await assert.rejects(async () => {
+				const actual = await readFile(outFile, "utf8");
+				const expected = formatResourcesModule(resources);
+				if (actual !== expected) throw new Error("Generated admin resources are stale.");
+			}, /stale/i);
+		} finally {
+			process.chdir(previous);
+			await rm(dir, { recursive: true, force: true });
+		}
+		await generateAdminResources();
+		await checkAdminResources();
 	});
 });
+
+function expectThrowUnsupported() {
+	@entity()
+	class Broken {}
+	const resources = extractResources({ entities: [Broken as never] });
+	assert.equal(resources.Broken?.fields.length ?? 0, 0);
+}

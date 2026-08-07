@@ -1,5 +1,7 @@
-import { DEFAULT_OWNER_ADMIN_EMAIL } from "../owner-config.js";
+import { DEFAULT_OWNER_ADMIN_EMAIL } from "./owner-email.js";
 import type { AdminIdentity } from "../types.js";
+
+export { DEFAULT_OWNER_ADMIN_EMAIL };
 
 export const TEST_OWNER: AdminIdentity = {
 	userId: "user-owner",

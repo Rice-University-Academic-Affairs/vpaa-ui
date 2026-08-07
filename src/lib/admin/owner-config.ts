@@ -19,12 +19,12 @@ export function requireOwnerAdminEmail(raw: string | undefined | null): string {
 	return email;
 }
 
-export const DEFAULT_OWNER_ADMIN_EMAIL = "owner@example.edu";
-
-export function resolveOwnerAdminEmail(
-	envValue: string | undefined = typeof import.meta !== "undefined"
-		? (import.meta.env?.PUBLIC_OWNER_ADMIN_EMAIL as string | undefined)
-		: undefined
-): string {
-	return requireOwnerAdminEmail(envValue ?? DEFAULT_OWNER_ADMIN_EMAIL);
+export function resolveOwnerAdminEmail(envValue?: string | undefined | null): string {
+	const fromEnv =
+		envValue ??
+		(typeof import.meta !== "undefined"
+			? ((import.meta.env?.PUBLIC_OWNER_ADMIN_EMAIL as string | undefined) ??
+				(import.meta.env?.VITE_OWNER_ADMIN_EMAIL as string | undefined))
+			: undefined);
+	return requireOwnerAdminEmail(fromEnv);
 }

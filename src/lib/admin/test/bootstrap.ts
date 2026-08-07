@@ -1,9 +1,9 @@
 import { MemoryAdminData } from "../memory-admin-data.js";
 import { MemoryAdminMembership } from "../membership.js";
 import { adminResources } from "../generated/resources.js";
-import { resolveOwnerAdminEmail } from "../owner-config.js";
 import {
 	createProductSeed,
+	DEFAULT_OWNER_ADMIN_EMAIL,
 	TEST_ADMIN,
 	TEST_INVITEE,
 	TEST_NON_ADMIN,
@@ -23,7 +23,7 @@ type StoredHarness = {
 	identity: AdminIdentity | null;
 	forbidden: string[];
 	members: Array<Omit<AdminMembershipRecord, "isOwner">>;
-	products: AdminRecord[];
+	records: Record<string, AdminRecord[]>;
 };
 
 function readStore(): StoredHarness {
@@ -31,13 +31,18 @@ function readStore(): StoredHarness {
 		identity: TEST_OWNER,
 		forbidden: [],
 		members: [],
-		products: createProductSeed(30)
+		records: { Product: createProductSeed(30) }
 	};
 	if (typeof sessionStorage === "undefined") return fallback;
 	try {
 		const raw = sessionStorage.getItem(STORAGE_KEY);
 		if (!raw) return fallback;
-		return { ...fallback, ...(JSON.parse(raw) as Partial<StoredHarness>) };
+		const parsed = JSON.parse(raw) as Partial<StoredHarness> & { products?: AdminRecord[] };
+		return {
+			...fallback,
+			...parsed,
+			records: parsed.records ?? { Product: parsed.products ?? createProductSeed(30) }
+		};
 	} catch {
 		return fallback;
 	}
@@ -55,69 +60,42 @@ export function getTestAdminContext(): TestAdminHarness {
 	if (singleton) return singleton;
 
 	const stored = readStore();
+	let forbidden = [...stored.forbidden];
 	const data = new MemoryAdminData({
 		resources: adminResources,
-		seed: { Product: stored.products },
-		forbiddenResources: stored.forbidden
+		seed: stored.records,
+		forbiddenResources: forbidden
 	});
 	const membership = new MemoryAdminMembership({
-		ownerEmail: resolveOwnerAdminEmail(),
+		ownerEmail: DEFAULT_OWNER_ADMIN_EMAIL,
 		seed: stored.members
 	});
 
-	const persistMembers = async () => {
-		const list = await membership.list(TEST_OWNER);
+	const persistAll = () => {
 		writeStore({
-			members: list.items
-				.filter((row) => !row.isOwner)
-				.map(({ isOwner: _ignored, ...row }) => row)
+			members: membership.snapshot(),
+			records: data.snapshot(),
+			forbidden,
+			identity: singleton?.identity ?? stored.identity
 		});
 	};
 
-	const originalAdd = membership.add.bind(membership);
-	membership.add = async (caller, email) => {
-		const row = await originalAdd(caller, email);
-		await persistMembers();
-		return row;
-	};
-	const originalRemove = membership.remove.bind(membership);
-	membership.remove = async (caller, id) => {
-		await originalRemove(caller, id);
-		await persistMembers();
-	};
-	const originalBind = membership.bindOnLogin.bind(membership);
-	membership.bindOnLogin = async (identity) => {
-		const row = await originalBind(identity);
-		await persistMembers();
-		return row;
+	const wrapPersist = <Args extends unknown[], R>(
+		fn: (...args: Args) => Promise<R>
+	): ((...args: Args) => Promise<R>) => {
+		return async (...args: Args) => {
+			const result = await fn(...args);
+			persistAll();
+			return result;
+		};
 	};
 
-	const originalCreate = data.create.bind(data);
-	data.create = async (resource, values) => {
-		const row = await originalCreate(resource, values);
-		if (resource === "Product") {
-			const listed = await data.list("Product", { limit: 1000, sort: { field: "id", direction: "asc" } });
-			writeStore({ products: listed.items });
-		}
-		return row;
-	};
-	const originalUpdate = data.update.bind(data);
-	data.update = async (resource, id, values) => {
-		const row = await originalUpdate(resource, id, values);
-		if (resource === "Product") {
-			const listed = await data.list("Product", { limit: 1000, sort: { field: "id", direction: "asc" } });
-			writeStore({ products: listed.items });
-		}
-		return row;
-	};
-	const originalRemoveData = data.remove.bind(data);
-	data.remove = async (resource, id) => {
-		await originalRemoveData(resource, id);
-		if (resource === "Product") {
-			const listed = await data.list("Product", { limit: 1000, sort: { field: "id", direction: "asc" } });
-			writeStore({ products: listed.items });
-		}
-	};
+	membership.add = wrapPersist(membership.add.bind(membership));
+	membership.remove = wrapPersist(membership.remove.bind(membership));
+	membership.bindOnLogin = wrapPersist(membership.bindOnLogin.bind(membership));
+	data.create = wrapPersist(data.create.bind(data));
+	data.update = wrapPersist(data.update.bind(data));
+	data.remove = wrapPersist(data.remove.bind(data));
 
 	singleton = {
 		resources: adminResources,
@@ -128,11 +106,19 @@ export function getTestAdminContext(): TestAdminHarness {
 		resetData() {
 			const products = createProductSeed(30);
 			data.reset({ Product: products });
+			data.clearForbidden();
 			membership.reset();
-			writeStore({ identity: TEST_OWNER, forbidden: [], members: [], products });
+			forbidden = [];
 			this.identity = TEST_OWNER;
+			writeStore({
+				identity: TEST_OWNER,
+				forbidden: [],
+				members: [],
+				records: { Product: products }
+			});
 		},
 		setForbidden(names: string[]) {
+			forbidden = [...names];
 			data.setForbidden(names);
 			writeStore({ forbidden: names });
 		}

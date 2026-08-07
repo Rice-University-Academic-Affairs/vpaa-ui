@@ -50,6 +50,12 @@ describe("form-values", () => {
 		expect(() =>
 			parseFormValues({ name: "A", priceInCents: "1.5", rating: "1", active: false, status: "draft" }, fields)
 		).toThrow(AdminError);
+		try {
+			parseFormValues({ name: "A", priceInCents: "1.5", rating: "1", active: false, status: "draft" }, fields);
+		} catch (error) {
+			expect(error).toBeInstanceOf(AdminError);
+			expect((error as AdminError).fields?.priceInCents).toMatch(/integer/i);
+		}
 		expect(() =>
 			parseFormValues({ name: "A", priceInCents: "1", rating: "1", active: false, status: "nope" }, fields)
 		).toThrow(AdminError);

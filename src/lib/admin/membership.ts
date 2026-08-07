@@ -38,8 +38,12 @@ export class MemoryAdminMembership implements AdminMembershipService {
 		}
 	}
 
+	snapshot(): Array<Omit<AdminMembershipRecord, "isOwner">> {
+		return [...this.members.values()].map(({ isOwner: _ignored, ...row }) => ({ ...row }));
+	}
+
 	async check(identity: AdminIdentity | null): Promise<{ allowed: boolean; status: number }> {
-		if (!identity) return { allowed: false, status: 401 };
+		if (!identity?.userId || !identity.email) return { allowed: false, status: 401 };
 		if (this.isOwner(identity) || this.findMember(identity)) return { allowed: true, status: 200 };
 		return { allowed: false, status: 403 };
 	}
@@ -96,12 +100,21 @@ export class MemoryAdminMembership implements AdminMembershipService {
 		if (existing.email === this.ownerEmail) {
 			throw new AdminError("conflict", "Owner cannot be deleted", { status: 409 });
 		}
+		if (
+			existing.userId === caller.userId ||
+			normalizeEmail(existing.email) === normalizeEmail(caller.email)
+		) {
+			throw new AdminError("conflict", "Administrators cannot remove themselves", { status: 409 });
+		}
 		this.members.delete(id);
 	}
 
 	async bindOnLogin(identity: AdminIdentity): Promise<AdminMembershipRecord | null> {
+		if (!identity?.userId || !identity.email) return null;
 		if (this.isOwner(identity)) return null;
-		const byUser = [...this.members.values()].find((row) => row.userId === identity.userId);
+		const byUser = [...this.members.values()].find(
+			(row) => Boolean(row.userId) && row.userId === identity.userId
+		);
 		if (byUser) return { ...byUser };
 		const byEmail = [...this.members.values()].find(
 			(row) => row.email === normalizeEmail(identity.email) && !row.userId
@@ -117,14 +130,19 @@ export class MemoryAdminMembership implements AdminMembershipService {
 	}
 
 	private findMember(identity: AdminIdentity): AdminMembershipRecord | undefined {
+		const byUser = [...this.members.values()].find(
+			(row) => Boolean(row.userId) && row.userId === identity.userId
+		);
+		if (byUser) return byUser;
 		return [...this.members.values()].find(
-			(row) =>
-				row.userId === identity.userId || normalizeEmail(row.email) === normalizeEmail(identity.email)
+			(row) => !row.userId && normalizeEmail(row.email) === normalizeEmail(identity.email)
 		);
 	}
 
 	private assertAdmin(caller: AdminIdentity): void {
-		if (!caller) throw new AdminError("unauthorized", "Sign in required", { status: 401 });
+		if (!caller?.userId || !caller.email) {
+			throw new AdminError("unauthorized", "Sign in required", { status: 401 });
+		}
 		if (this.isOwner(caller) || this.findMember(caller)) return;
 		throw new AdminError("forbidden", "Administrator access required", { status: 403 });
 	}
