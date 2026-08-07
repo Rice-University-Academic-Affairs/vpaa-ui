@@ -17,6 +17,7 @@
 	];
 
 	let chatSession = $state<AiChatSession | undefined>(undefined);
+	let searchSelection = $state("");
 
 	$effect(() => {
 		if (!chatSession) {
@@ -24,8 +25,13 @@
 		}
 	});
 
-	function handleSearchSelect(_item: unknown) {}
+	function handleSearchSelect(item: unknown) {
+		const name = (item as { name?: string }).name;
+		searchSelection = name ?? "";
+	}
 </script>
+
+<span data-search-result={searchSelection} class="sr-only" aria-live="polite"></span>
 
 <AppShell
 	appName="VPAA UI"
