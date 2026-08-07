@@ -57,6 +57,17 @@ Accept tests that:
 3. Hunt remaining gaps (AdminUser E2E depth, RayfinAdminData unit smoke, trusted helper tests, generator relationship FK retention).
 4. Fix + re-run full suites.
 
+#### Pass 2 outcomes (applied)
+
+- Trusted membership gained `bindOnLogin`, `AdminError` parity, and field-mapped invalid email.
+- Memory AdminUser data-API forbid aligned with Rayfin for list/get/update/remove; seed ids normalized; list limits clamped; required-field validation added.
+- Generator G8/G9 tests now fail for real unsupported fields / stale `checkAdminResources({ outFile })`.
+- ProductCategory keeps scalar `productId` FK while omitting `@one` navigation.
+- RayfinAdminData contract runs against a behavior-complete in-memory client; GraphQL error mapping no longer treats every GraphQL message as validation.
+- E2E bind uses the access-gate path; sort asserts descending name order; FacultyAward covers enum/boolean/textarea; forbidden persists across reload.
+
+Deferred until Rayfin auth is available: production layout wiring of `RayfinAdminData` (test/DEV harness remains intentional scaffolding).
+
 ## Demo (after both passes)
 
 Exercise every E2E-covered flow in the browser with screenshots + screen recording:

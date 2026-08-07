@@ -19,6 +19,7 @@ export type MemoryAdminDataOptions = {
 
 const MEMBERSHIP_RESOURCE = "AdminUser";
 
+/** Test / local scaffolding only. Production admin must use RayfinAdminData. */
 export class MemoryAdminData implements AdminData {
 	private readonly store: Store = new Map();
 	private readonly resources: AdminResources;
@@ -63,14 +64,15 @@ export class MemoryAdminData implements AdminData {
 
 	async list(resource: string, request: ListRequest = {}): Promise<ListResult> {
 		this.assertKnown(resource);
+		this.assertMembershipGuard(resource);
 		this.assertAllowed(resource);
 		const def = this.resources[resource]!;
 		const sort = request.sort ?? defaultSort(def);
-		const limit = request.limit ?? ADMIN_PAGE_SIZE;
+		const limit = clampLimit(request.limit);
 		const items = [...this.ensure(resource).values()].sort((a, b) => compare(a, b, sort));
 		let start = 0;
 		if (request.cursor) {
-			const idx = items.findIndex((item) => item.id === request.cursor);
+			const idx = items.findIndex((item) => String(item.id) === String(request.cursor));
 			if (idx < 0) {
 				throw new AdminError("not_found", `Pagination cursor ${request.cursor} was not found`);
 			}
@@ -87,8 +89,9 @@ export class MemoryAdminData implements AdminData {
 
 	async get(resource: string, id: string): Promise<AdminRecord | null> {
 		this.assertKnown(resource);
+		this.assertMembershipGuard(resource);
 		this.assertAllowed(resource);
-		const record = this.ensure(resource).get(id);
+		const record = this.ensure(resource).get(String(id));
 		return record ? { ...record } : null;
 	}
 
@@ -96,6 +99,7 @@ export class MemoryAdminData implements AdminData {
 		this.assertKnown(resource);
 		this.assertMembershipGuard(resource);
 		this.assertAllowed(resource);
+		this.assertWritableValues(resource, values, "create");
 		const id = typeof values.id === "string" && values.id ? values.id : crypto.randomUUID();
 		const record: AdminRecord = { ...values, id };
 		this.ensure(resource).set(id, record);
@@ -106,10 +110,11 @@ export class MemoryAdminData implements AdminData {
 		this.assertKnown(resource);
 		this.assertMembershipGuard(resource);
 		this.assertAllowed(resource);
-		const existing = this.ensure(resource).get(id);
+		this.assertWritableValues(resource, values, "update");
+		const existing = this.ensure(resource).get(String(id));
 		if (!existing) throw new AdminError("not_found", `Record ${id} not found`);
-		const next = { ...existing, ...values, id };
-		this.ensure(resource).set(id, next);
+		const next = { ...existing, ...values, id: String(id) };
+		this.ensure(resource).set(String(id), next);
 		return { ...next };
 	}
 
@@ -118,8 +123,8 @@ export class MemoryAdminData implements AdminData {
 		this.assertMembershipGuard(resource);
 		this.assertAllowed(resource);
 		const bucket = this.ensure(resource);
-		if (!bucket.has(id)) throw new AdminError("not_found", `Record ${id} not found`);
-		bucket.delete(id);
+		if (!bucket.has(String(id))) throw new AdminError("not_found", `Record ${id} not found`);
+		bucket.delete(String(id));
 	}
 
 	private applySeed(seed: Record<string, AdminRecord[]>): void {
@@ -129,7 +134,8 @@ export class MemoryAdminData implements AdminData {
 			}
 			const bucket = this.ensure(resource);
 			for (const record of records) {
-				bucket.set(String(record.id), { ...record });
+				const id = String(record.id);
+				bucket.set(id, { ...record, id });
 			}
 		}
 	}
@@ -164,6 +170,41 @@ export class MemoryAdminData implements AdminData {
 			);
 		}
 	}
+
+	private assertWritableValues(
+		resource: string,
+		values: Record<string, unknown>,
+		mode: "create" | "update"
+	): void {
+		const def = this.resources[resource]!;
+		const fields: Record<string, string> = {};
+		for (const field of def.fields) {
+			if (field.readOnly || field.generated || field.primaryKey) continue;
+			if (!(field.name in values)) {
+				if (mode === "create" && !field.nullable) {
+					fields[field.name] = `${field.name} is required`;
+				}
+				continue;
+			}
+			const value = values[field.name];
+			if (!field.nullable && (value === null || value === undefined || value === "")) {
+				fields[field.name] = `${field.name} is required`;
+			}
+			if (field.type === "integer" && value != null && value !== "") {
+				if (typeof value !== "number" || !Number.isInteger(value)) {
+					fields[field.name] = "Must be an integer";
+				}
+			}
+		}
+		if (Object.keys(fields).length > 0) {
+			throw new AdminError("validation", "Validation failed", { fields, status: 400 });
+		}
+	}
+}
+
+function clampLimit(limit: number | undefined): number {
+	if (limit == null || !Number.isFinite(limit)) return ADMIN_PAGE_SIZE;
+	return Math.min(ADMIN_PAGE_SIZE, Math.max(1, Math.trunc(limit)));
 }
 
 function compare(a: AdminRecord, b: AdminRecord, sort: ListSort): number {

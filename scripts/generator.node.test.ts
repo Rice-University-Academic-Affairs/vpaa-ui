@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
@@ -11,7 +11,8 @@ import { ProductCategory } from "../rayfin/data/ProductCategory.js";
 import {
 	extractResources,
 	formatResourcesModule,
-	GeneratorError
+	GeneratorError,
+	normalizeField
 } from "../src/lib/admin/generator/extract.js";
 import { checkAdminResources, generateAdminResources } from "./generate-admin.js";
 
@@ -66,46 +67,50 @@ describe("admin generator", () => {
 	});
 
 	it("fails clearly on unsupported constructs (G8)", () => {
-		expectThrowUnsupported();
 		assert.throws(
 			() => extractResources({ entities: [{ name: "Nope" } as never] }),
-			GeneratorError
+			(err: unknown) => err instanceof GeneratorError && /Unsupported construct/.test(String(err))
 		);
+		assert.throws(
+			() => normalizeField("Broken", "raw", { format: undefined } as never),
+			(err: unknown) =>
+				err instanceof GeneratorError && err.entity === "Broken" && err.field === "raw"
+		);
+		assert.throws(
+			() => normalizeField("Broken", "blob", { format: "blob" } as never),
+			(err: unknown) =>
+				err instanceof GeneratorError &&
+				err.entity === "Broken" &&
+				err.field === "blob" &&
+				/Unsupported decorator/.test(err.message)
+		);
+		@entity()
+		class EmptyEntity {}
+		const resources = extractResources({ entities: [EmptyEntity as never] });
+		assert.equal(resources.EmptyEntity?.fields.length ?? 0, 0);
 	});
 
-	it("omits relationship navigation properties in v1 (G6)", () => {
+	it("omits relationship navigation properties and keeps scalar FKs in v1 (G6)", () => {
 		const resources = extractResources({ entities: [ProductCategory] });
 		assert.deepEqual(
 			resources.ProductCategory!.fields.map((f) => f.name),
-			["id", "name"]
+			["id", "name", "productId"]
 		);
 		assert.ok(!resources.ProductCategory!.fields.some((f) => f.name === "product"));
 	});
 
 	it("checkAdminResources rejects stale filesystem output (G9, S1)", async () => {
 		const dir = await mkdtemp(path.join(os.tmpdir(), "admin-check-"));
-		const outFile = path.join(dir, "resources.ts");
-		const resources = extractResources({ entities: [Product, FacultyAward, AdminUser] });
-		await writeFile(outFile, formatResourcesModule(resources) + "\n// stale\n", "utf8");
-		const previous = process.cwd();
-		try {
-			await assert.rejects(async () => {
-				const actual = await readFile(outFile, "utf8");
-				const expected = formatResourcesModule(resources);
-				if (actual !== expected) throw new Error("Generated admin resources are stale.");
-			}, /stale/i);
-		} finally {
-			process.chdir(previous);
-			await rm(dir, { recursive: true, force: true });
-		}
+		const staleFile = path.join(dir, "resources.ts");
 		await generateAdminResources();
+		const { readFile } = await import("node:fs/promises");
+		const fresh = await readFile(
+			path.resolve("src/lib/admin/generated/resources.ts"),
+			"utf8"
+		);
+		await writeFile(staleFile, `${fresh}\n// stale\n`, "utf8");
+		await assert.rejects(() => checkAdminResources({ outFile: staleFile }), /stale/i);
+		await rm(dir, { recursive: true, force: true });
 		await checkAdminResources();
 	});
 });
-
-function expectThrowUnsupported() {
-	@entity()
-	class Broken {}
-	const resources = extractResources({ entities: [Broken as never] });
-	assert.equal(resources.Broken?.fields.length ?? 0, 0);
-}

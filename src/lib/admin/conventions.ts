@@ -97,8 +97,4 @@ export function writableFields(resource: AdminResource): AdminField[] {
 	return resource.fields.filter((field) => !field.readOnly && !field.generated && !field.primaryKey);
 }
 
-export function PAGE_SIZE(): number {
-	return 25;
-}
-
 export const ADMIN_PAGE_SIZE = 25;

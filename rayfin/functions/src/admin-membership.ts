@@ -1,3 +1,4 @@
+import { AdminError } from "../../../src/lib/admin/types.js";
 import {
 	isValidEmail,
 	normalizeEmail,
@@ -51,14 +52,10 @@ export function createTrustedMembershipService(options: {
 
 	async function assertAdmin(caller: MembershipCaller | null) {
 		if (!caller?.userId || !caller.email) {
-			const error = new Error("Unauthorized");
-			(error as Error & { status: number }).status = 401;
-			throw error;
+			throw new AdminError("unauthorized", "Unauthorized", { status: 401 });
 		}
 		if (isOwner(caller) || (await findMember(caller))) return;
-		const error = new Error("Forbidden");
-		(error as Error & { status: number }).status = 403;
-		throw error;
+		throw new AdminError("forbidden", "Forbidden", { status: 403 });
 	}
 
 	return {
@@ -85,7 +82,9 @@ export function createTrustedMembershipService(options: {
 						createdBy: "system",
 						isOwner: true
 					},
-					...members.map((row) => ({ ...row, email: normalizeEmail(row.email), isOwner: false }))
+					...members
+						.filter((row) => normalizeEmail(row.email) !== ownerEmail)
+						.map((row) => ({ ...row, email: normalizeEmail(row.email), isOwner: false }))
 				]
 			};
 		},
@@ -93,56 +92,62 @@ export function createTrustedMembershipService(options: {
 			await assertAdmin(caller);
 			const normalized = normalizeEmail(email);
 			if (!isValidEmail(normalized)) {
-				const error = new Error("Invalid email");
-				(error as Error & { status: number }).status = 400;
-				throw error;
+				throw new AdminError("validation", "Invalid email", {
+					status: 400,
+					fields: { email: "Invalid email" }
+				});
 			}
 			if (normalized === ownerEmail) {
-				const error = new Error("Owner membership cannot be modified");
-				(error as Error & { status: number }).status = 409;
-				throw error;
+				throw new AdminError("conflict", "Owner membership cannot be modified", { status: 409 });
 			}
 			const existing = await options.store.list();
 			if (existing.some((row) => normalizeEmail(row.email) === normalized)) {
-				const error = new Error("Administrator already exists");
-				(error as Error & { status: number }).status = 409;
-				throw error;
+				throw new AdminError("conflict", "Administrator already exists", { status: 409 });
 			}
-			return options.store.create({
+			const created = await options.store.create({
 				email: normalized,
 				userId: null,
 				createdAt: new Date().toISOString(),
-				createdBy: caller.email
+				createdBy: normalizeEmail(caller.email)
 			});
+			return { ...created, isOwner: false as const };
 		},
 		async remove(caller: MembershipCaller, id: string) {
 			await assertAdmin(caller);
 			if (id === "owner") {
-				const error = new Error("Owner cannot be deleted");
-				(error as Error & { status: number }).status = 409;
-				throw error;
+				throw new AdminError("conflict", "Owner cannot be deleted", { status: 409 });
 			}
 			const members = await options.store.list();
 			const existing = members.find((row) => row.id === id);
 			if (!existing) {
-				const error = new Error("Administrator not found");
-				(error as Error & { status: number }).status = 404;
-				throw error;
+				throw new AdminError("not_found", "Administrator not found", { status: 404 });
 			}
 			if (normalizeEmail(existing.email) === ownerEmail) {
-				const error = new Error("Owner cannot be deleted");
-				(error as Error & { status: number }).status = 409;
-				throw error;
+				throw new AdminError("conflict", "Owner cannot be deleted", { status: 409 });
 			}
 			if (
 				existing.userId === caller.userId ||
 				normalizeEmail(existing.email) === normalizeEmail(caller.email)
 			) {
-				const error = new Error("Administrators cannot remove themselves");
-				(error as Error & { status: number }).status = 409;
-				throw error;
+				throw new AdminError("conflict", "Administrators cannot remove themselves", {
+					status: 409
+				});
 			}
 			await options.store.remove(id);
+		},
+		async bindOnLogin(identity: MembershipCaller) {
+			if (!identity?.userId || !identity.email) return null;
+			if (isOwner(identity)) return null;
+			const members = await options.store.list();
+			const byUser = members.find((row) => Boolean(row.userId) && row.userId === identity.userId);
+			if (byUser) return { ...byUser, isOwner: false as const };
+			const byEmail = members.find(
+				(row) =>
+					!row.userId && normalizeEmail(row.email) === normalizeEmail(identity.email)
+			);
+			if (!byEmail) return null;
+			const bound = await options.store.update(byEmail.id, { userId: identity.userId });
+			return { ...bound, isOwner: false as const };
 		}
 	};
 }

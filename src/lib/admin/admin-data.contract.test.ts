@@ -116,6 +116,12 @@ export function defineAdminDataContract(name: string, factory: () => AdminData) 
 			await expect(data.create("AdminUser", { email: "x@example.edu" })).rejects.toMatchObject({
 				kind: "forbidden"
 			});
+			await expect(data.list("AdminUser")).rejects.toMatchObject({ kind: "forbidden" });
+			await expect(data.get("AdminUser", "x")).rejects.toMatchObject({ kind: "forbidden" });
+			await expect(data.update("AdminUser", "x", { email: "y@example.edu" })).rejects.toMatchObject({
+				kind: "forbidden"
+			});
+			await expect(data.remove("AdminUser", "x")).rejects.toMatchObject({ kind: "forbidden" });
 		});
 	});
 }
@@ -148,7 +154,122 @@ describe("MemoryAdminData extras", () => {
 				})
 		).toThrow(AdminError);
 	});
+
+	it("normalizes numeric seed ids for cursor equality and validates required fields", async () => {
+		const data = new MemoryAdminData({
+			resources: contractResources,
+			seed: {
+				Product: [{ id: 1 as unknown as string, name: "A", priceInCents: 1 }]
+			}
+		});
+		const page = await data.list("Product", { limit: 1, sort: { field: "id", direction: "asc" } });
+		expect(page.endCursor).toBe("1");
+		const next = await data.list("Product", {
+			limit: 1,
+			cursor: page.endCursor,
+			sort: { field: "id", direction: "asc" }
+		});
+		expect(next.items).toHaveLength(0);
+		await expect(data.create("Product", { priceInCents: 1 })).rejects.toMatchObject({
+			kind: "validation",
+			fields: { name: "name is required" }
+		});
+		await expect(data.update("Product", "missing", { name: "X" })).rejects.toMatchObject({
+			kind: "not_found"
+		});
+	});
+
+	it("clamps invalid list limits", async () => {
+		const data = new MemoryAdminData({
+			resources: contractResources,
+			seed: { Product: createProductSeed(5) }
+		});
+		const zero = await data.list("Product", { limit: 0 });
+		expect(zero.items).toHaveLength(1);
+		const huge = await data.list("Product", { limit: 1000 });
+		expect(huge.items).toHaveLength(5);
+	});
 });
+
+function createInMemoryRayfinClient(resources: AdminResources): RayfinDataClient {
+	const store = new Map<string, Map<string, Record<string, unknown>>>();
+	for (const name of Object.keys(resources)) store.set(name, new Map());
+
+	function entityClient(resource: string) {
+		const bucket = () => store.get(resource)!;
+		return {
+			select(_fields: string[]) {
+				return {
+					orderBy(order: Record<string, "asc" | "desc">) {
+						return {
+							first(n: number) {
+								const run = async (cursor?: string) => {
+									const [[field, direction]] = Object.entries(order);
+									const items = [...bucket().values()].sort((a, b) => {
+										const av = a[field!];
+										const bv = b[field!];
+										if (av === bv) return String(a.id).localeCompare(String(b.id));
+										if ((av as never) < (bv as never)) return direction === "asc" ? -1 : 1;
+										return direction === "asc" ? 1 : -1;
+									});
+									let start = 0;
+									if (cursor) {
+										const idx = items.findIndex((item) => String(item.id) === cursor);
+										if (idx < 0) throw new Error("invalid cursor");
+										start = idx + 1;
+									}
+									const page = items.slice(start, start + n);
+									return {
+										items: page.map((item) => ({ ...item })),
+										hasNextPage: start + n < items.length,
+										endCursor: page.length ? String(page[page.length - 1]!.id) : undefined
+									};
+								};
+								return {
+									after: (cursor: string) => ({ executePaginated: () => run(cursor) }),
+									executePaginated: () => run()
+								};
+							}
+						};
+					}
+				};
+			},
+			findById: async (id: string) => {
+				const row = bucket().get(id);
+				return row ? { ...row } : null;
+			},
+			create: async (values: Record<string, unknown>) => {
+				const id = typeof values.id === "string" && values.id ? values.id : crypto.randomUUID();
+				const record = { ...values, id };
+				bucket().set(id, record);
+				return { ...record };
+			},
+			update: async (where: { id: string }, values: Record<string, unknown>) => {
+				const existing = bucket().get(where.id);
+				if (!existing) throw new Error("not found");
+				const next = { ...existing, ...values, id: where.id };
+				bucket().set(where.id, next);
+				return { ...next };
+			},
+			delete: async (where: { id: string }) => {
+				if (!bucket().has(where.id)) throw new Error("not found");
+				bucket().delete(where.id);
+			}
+		};
+	}
+
+	const data: RayfinDataClient["data"] = {};
+	for (const name of Object.keys(resources)) {
+		if (name === "AdminUser") continue;
+		data[name] = entityClient(name);
+	}
+	return { data };
+}
+
+defineAdminDataContract(
+	"RayfinAdminData in-memory client",
+	() => new RayfinAdminData(createInMemoryRayfinClient(contractResources), contractResources)
+);
 
 describe("RayfinAdminData SDK dispatch", () => {
 	it("calls update/delete with where objects and maps GraphQL errors", async () => {
@@ -191,5 +312,23 @@ describe("RayfinAdminData SDK dispatch", () => {
 		};
 		const guarded = new RayfinAdminData(failing, contractResources);
 		await expect(guarded.create("Product", { name: "X" })).rejects.toMatchObject({ kind: "forbidden" });
+		await expect(
+			new RayfinAdminData(
+				{
+					data: {
+						Product: {
+							select,
+							findById,
+							create: async () => {
+								throw new Error("GraphQL errors: internal failure");
+							},
+							update,
+							delete: del
+						}
+					}
+				},
+				contractResources
+			).create("Product", { name: "X" })
+		).rejects.toMatchObject({ kind: "unexpected" });
 	});
 });

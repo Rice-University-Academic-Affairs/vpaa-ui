@@ -52,7 +52,7 @@ export function extractResources(options: GenerateOptions): AdminResources {
 	return resources;
 }
 
-function normalizeField(entityName: string, fieldName: string, meta: FieldMetadata<any>): AdminField {
+export function normalizeField(entityName: string, fieldName: string, meta: FieldMetadata<any>): AdminField {
 	if (!meta.format) {
 		throw new GeneratorError(
 			`Unsupported field type on ${entityName}.${fieldName}: missing Rayfin field decorator`,

@@ -43,8 +43,19 @@ export function mapAdminError(error: unknown): UiErrorState {
 			return { kind: "not_found", title: "Not found", message: "The requested record was not found." };
 		}
 		if (status === 409) return { kind: "conflict", title: "Conflict", message };
-		if (status === 400 || lower.includes("validation") || lower.includes("graphql errors")) {
+		if (
+			status === 400 ||
+			lower.includes("validation") ||
+			(lower.includes("graphql errors") && lower.includes("validation"))
+		) {
 			return { kind: "validation", title: "Validation error", message };
+		}
+		if (lower.includes("graphql errors")) {
+			return {
+				kind: "unexpected",
+				title: "Something went wrong",
+				message: "Something went wrong. Please try again."
+			};
 		}
 	}
 

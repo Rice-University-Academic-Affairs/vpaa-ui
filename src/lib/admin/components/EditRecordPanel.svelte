@@ -9,6 +9,7 @@
 		type FormValues
 	} from "$lib/admin/form-values.js";
 	import { humanizeName } from "$lib/admin/conventions.js";
+	import { normalizeEmail } from "$lib/admin/owner-config.js";
 	import { mapAdminError } from "$lib/admin/errors.js";
 	import AdminErrorView from "$lib/admin/components/AdminError.svelte";
 	import RecordForm from "$lib/admin/components/RecordForm.svelte";
@@ -110,7 +111,7 @@
 				</div>
 			{/each}
 		</div>
-		{#if !member.isOwner && member.userId !== admin.identity?.userId && member.email !== admin.identity?.email}
+		{#if !member.isOwner && member.userId !== admin.identity?.userId && normalizeEmail(member.email) !== normalizeEmail(admin.identity?.email ?? "")}
 			<div class="border-destructive/20 flex flex-col gap-3 border-t pt-6">
 				<p class="text-sm font-medium">Remove administrator</p>
 				<Button variant="destructive" onclick={() => (deleteOpen = true)} disabled={deleting}>

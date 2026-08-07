@@ -18,23 +18,24 @@ export class MemoryAdminMembership implements AdminMembershipService {
 
 	constructor(options: MemoryMembershipOptions) {
 		this.ownerEmail = requireOwnerAdminEmail(options.ownerEmail);
-		if (options.seed) {
-			for (const row of options.seed) {
-				const email = normalizeEmail(row.email);
-				this.members.set(row.id, {
-					...row,
-					email,
-					isOwner: false
-				});
-			}
-		}
+		if (options.seed) this.applySeed(options.seed);
 	}
 
 	reset(seed: Array<Omit<AdminMembershipRecord, "isOwner">> = []): void {
 		this.members.clear();
+		this.applySeed(seed);
+	}
+
+	private applySeed(seed: Array<Omit<AdminMembershipRecord, "isOwner">>): void {
 		for (const row of seed) {
 			const email = normalizeEmail(row.email);
-			this.members.set(row.id, { ...row, email, isOwner: false });
+			if (email === this.ownerEmail) continue;
+			this.members.set(row.id, {
+				...row,
+				email,
+				createdBy: normalizeEmail(row.createdBy),
+				isOwner: false
+			});
 		}
 	}
 
@@ -83,7 +84,7 @@ export class MemoryAdminMembership implements AdminMembershipService {
 			email: normalized,
 			userId: null,
 			createdAt: new Date().toISOString(),
-			createdBy: caller.email,
+			createdBy: normalizeEmail(caller.email),
 			isOwner: false
 		};
 		this.members.set(record.id, record);

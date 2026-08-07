@@ -14,7 +14,8 @@ describe("production isolation (I1-I3)", () => {
 
 	it("memory admin data module documents test-only usage", () => {
 		const source = readFileSync(path.resolve("src/lib/admin/memory-admin-data.ts"), "utf8");
-		expect(source).toContain("export class MemoryAdminData");
+		expect(source).toMatch(/Test \/ local scaffolding only/);
+		expect(source).toMatch(/RayfinAdminData/);
 	});
 
 	it("does not activate memory mode from query parameters", () => {
@@ -23,6 +24,12 @@ describe("production isolation (I1-I3)", () => {
 		expect(layout).not.toMatch(/localStorage.*adminMode/i);
 		expect(layout).toMatch(/PUBLIC_ADMIN_TEST_MODE|import\.meta\.env\.DEV/);
 		expect(layout).toMatch(/getTestAdminContext/);
+	});
+
+	it("admin routes do not statically import MemoryAdminData outside the test harness", () => {
+		const layout = readFileSync(path.resolve("src/routes/admin/+layout.svelte"), "utf8");
+		expect(layout).not.toMatch(/MemoryAdminData/);
+		expect(layout).toMatch(/\$lib\/admin\/test\/bootstrap/);
 	});
 
 	it("owner default email lives only in the test identities module", () => {

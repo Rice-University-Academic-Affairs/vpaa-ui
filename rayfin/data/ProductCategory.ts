@@ -10,6 +10,9 @@ export class ProductCategory {
 	@text({ max: 200 })
 	name!: string;
 
+	@uuid()
+	productId!: string;
+
 	@one(() => Product)
 	product!: Product;
 }

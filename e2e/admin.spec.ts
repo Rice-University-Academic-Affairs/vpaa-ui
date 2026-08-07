@@ -59,22 +59,24 @@ test.describe("Admin application E2E", () => {
 		await page.getByRole("button", { name: "Create" }).click();
 		await expect(page.locator("#member-email")).toHaveValue("admin@example.edu");
 
-		await page.evaluate(async () => {
+		await page.evaluate(() => {
 			const harness = window.__ADMIN_TEST__!;
 			harness.setIdentity(harness.identities.TEST_ADMIN);
-			await harness.membership.bindOnLogin(harness.identities.TEST_ADMIN);
 		});
 		await page.goto("/admin/admin-users");
+		await expect(page.getByRole("heading", { name: "Admin" })).toBeVisible();
 		await expect(page.getByText("admin@example.edu")).toBeVisible();
+		await page.getByText("admin@example.edu").click();
+		await expect(page.locator("#member-userId")).toHaveValue("user-admin");
 
+		await page.goto("/admin/admin-users");
 		await page.getByRole("link", { name: "New" }).click();
 		await page.locator("#field-email").fill("invitee@example.edu");
 		await page.getByRole("button", { name: "Create" }).click();
 		await expect(page.locator("#member-email")).toHaveValue("invitee@example.edu");
 
-		await page.evaluate(async () => {
+		await page.evaluate(() => {
 			const harness = window.__ADMIN_TEST__!;
-			await harness.membership.bindOnLogin(harness.identities.TEST_INVITEE);
 			harness.setIdentity(harness.identities.TEST_INVITEE);
 		});
 		await page.goto("/admin");
@@ -103,10 +105,13 @@ test.describe("Admin application E2E", () => {
 		await page.getByRole("button", { name: "Previous" }).click();
 		await expect(page.locator("tbody tr")).toHaveCount(25);
 		await expect(page.locator("tbody tr").first().locator("td").first()).toHaveText(firstId ?? "");
-		await page.getByRole("button", { name: "Next" }).click();
 		await page.getByRole("button", { name: "Name" }).click();
-		await expect(page.getByRole("button", { name: /Name/ })).toContainText(/↑|↓/);
+		await page.getByRole("button", { name: "Name" }).click();
+		await expect(page.getByRole("button", { name: /Name/ })).toContainText("↓");
 		await expect(page.locator("tbody tr")).toHaveCount(25);
+		const namesDesc = await page.locator("tbody tr td:nth-child(2)").allTextContents();
+		expect(namesDesc[0]?.trim()).toBe("Product 030");
+		expect(namesDesc[namesDesc.length - 1]?.trim()).toBe("Product 006");
 	});
 
 	test("E2E10-E2E13 create, edit, validation, delete", async ({ page }) => {
@@ -143,9 +148,32 @@ test.describe("Admin application E2E", () => {
 		await expect(page.getByRole("alert").filter({ hasText: "Not found" })).toBeVisible();
 	});
 
+	test("E2E FacultyAward enum/boolean/textarea create and reload", async ({ page }) => {
+		await page.getByRole("link", { name: "Faculty Awards", exact: true }).click();
+		await page.getByRole("link", { name: "New" }).click();
+		await page.locator("#field-title").fill("Teaching Excellence");
+		await page.locator("#field-facultyId").fill("FAC-100");
+		await page.locator("#field-status").click();
+		await page.getByRole("option", { name: "nominated" }).click();
+		await page.getByRole("checkbox", { name: "Published" }).click();
+		await page.locator("#field-notes").fill("Strong dossier");
+		await page.getByRole("button", { name: "Create" }).click();
+		await expect(page).toHaveURL(/\/admin\/faculty-awards\/(?!new$)[^/]+$/);
+		await expect(page.locator("#field-title")).toHaveValue("Teaching Excellence");
+		await expect(page.locator("#field-facultyId")).toHaveValue("FAC-100");
+		await expect(page.locator("#field-notes")).toHaveValue("Strong dossier");
+		await expect(page.getByRole("checkbox", { name: "Published" })).toBeChecked();
+		await page.reload();
+		await expect(page.locator("#field-title")).toHaveValue("Teaching Excellence");
+		await expect(page.locator("#field-status")).toContainText("nominated");
+		await expect(page.getByRole("checkbox", { name: "Published" })).toBeChecked();
+	});
+
 	test("E2E14 forbidden entity permission failure", async ({ page }) => {
 		await page.evaluate(() => window.__ADMIN_TEST__!.setForbidden(["Product"]));
 		await page.goto("/admin/products");
+		await expect(page.getByRole("alert").filter({ hasText: "Forbidden" })).toBeVisible();
+		await page.reload();
 		await expect(page.getByRole("alert").filter({ hasText: "Forbidden" })).toBeVisible();
 	});
 

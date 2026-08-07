@@ -40,10 +40,10 @@ function wrapRayfinError(error: unknown): never {
 	if (lower.includes("forbidden") || lower.includes("permission") || lower.includes("unauthorized")) {
 		throw new AdminError("forbidden", "This operation is not permitted.", { status: 403 });
 	}
-	if (lower.includes("validation") || lower.includes("invalid") || lower.includes("constraint")) {
+	if (lower.includes("validation") || lower.includes("constraint")) {
 		throw new AdminError("validation", message, { status: 400 });
 	}
-	if (lower.includes("not found") || lower.includes("notfound")) {
+	if (lower.includes("not found") || lower.includes("notfound") || lower.includes("invalid cursor")) {
 		throw new AdminError("not_found", message, { status: 404 });
 	}
 	throw new AdminError("unexpected", "Something went wrong talking to Rayfin.", { status: 500 });
@@ -75,7 +75,7 @@ export class RayfinAdminData implements AdminData {
 				? await builder.after(request.cursor).executePaginated()
 				: await builder.executePaginated();
 			return {
-				items: page.items,
+				items: page.items.map((item) => ({ ...item })),
 				hasNextPage: page.hasNextPage,
 				endCursor: page.endCursor
 			};

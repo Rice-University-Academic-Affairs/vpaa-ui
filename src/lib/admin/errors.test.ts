@@ -22,6 +22,11 @@ describe("errors", () => {
 		expect(mapAdminError(new Error("GraphQL errors: validation failed"))).toMatchObject({
 			kind: "validation"
 		});
+		expect(mapAdminError(new Error("GraphQL errors: internal boom"))).toMatchObject({
+			kind: "unexpected"
+		});
 		expect(mapAdminError({ status: 403, message: "denied" })).toMatchObject({ kind: "forbidden" });
+		expect(mapAdminError({ status: 409, message: "dup" })).toMatchObject({ kind: "conflict" });
+		expect(mapAdminError(new AdminError("not_found", "gone"))).toMatchObject({ kind: "not_found" });
 	});
 });

@@ -86,11 +86,32 @@ describe("membership", () => {
 		expect(await resolveAdminAccess(TEST_NON_ADMIN, membership)).toMatchObject({ status: "forbidden" });
 		expect(await resolveAdminAccess(TEST_OWNER, membership)).toMatchObject({ status: "allowed" });
 	});
+
+	it("skips owner-email rows from seeded membership lists", async () => {
+		const seeded = new MemoryAdminMembership({
+			ownerEmail: DEFAULT_OWNER_ADMIN_EMAIL,
+			seed: [
+				{
+					id: "ghost",
+					email: DEFAULT_OWNER_ADMIN_EMAIL,
+					userId: null,
+					createdAt: "",
+					createdBy: "seed"
+				}
+			]
+		});
+		const list = await seeded.list(TEST_OWNER);
+		expect(list.items.filter((row) => row.email === DEFAULT_OWNER_ADMIN_EMAIL)).toHaveLength(1);
+		expect(list.items[0]?.id).toBe("owner");
+	});
 });
 
 describe("trusted membership helper", () => {
-	it("mirrors memory semantics for owner/duplicate/forbidden", async () => {
-		const rows = new Map<string, { id: string; email: string; userId?: string | null; createdAt: string; createdBy: string }>();
+	function createStore() {
+		const rows = new Map<
+			string,
+			{ id: string; email: string; userId?: string | null; createdAt: string; createdBy: string }
+		>();
 		const store: MembershipStore = {
 			async list() {
 				return [...rows.values()];
@@ -111,6 +132,11 @@ describe("trusted membership helper", () => {
 				return next;
 			}
 		};
+		return { rows, store };
+	}
+
+	it("mirrors memory semantics for owner/duplicate/forbidden", async () => {
+		const { store } = createStore();
 		const service = createTrustedMembershipService({
 			ownerEmail: DEFAULT_OWNER_ADMIN_EMAIL,
 			store
@@ -118,8 +144,44 @@ describe("trusted membership helper", () => {
 		expect(await service.check(null)).toEqual({ allowed: false, status: 401 });
 		expect(await service.check(TEST_NON_ADMIN)).toEqual({ allowed: false, status: 403 });
 		const created = await service.add(TEST_OWNER, "admin@example.edu");
-		await expect(service.add(TEST_OWNER, "ADMIN@example.edu")).rejects.toMatchObject({ status: 409 });
-		await expect(service.remove(TEST_OWNER, "owner")).rejects.toMatchObject({ status: 409 });
+		expect(created.isOwner).toBe(false);
+		await expect(service.add(TEST_OWNER, "ADMIN@example.edu")).rejects.toMatchObject({
+			kind: "conflict",
+			status: 409
+		});
+		await expect(service.remove(TEST_OWNER, "owner")).rejects.toMatchObject({ kind: "conflict" });
 		expect(created.email).toBe("admin@example.edu");
+	});
+
+	it("binds invitees on login and locks to userId", async () => {
+		const { store } = createStore();
+		const service = createTrustedMembershipService({
+			ownerEmail: DEFAULT_OWNER_ADMIN_EMAIL,
+			store
+		});
+		const invite = await service.add(TEST_OWNER, TEST_ADMIN.email);
+		expect(invite.userId).toBeNull();
+		const bound = await service.bindOnLogin(TEST_ADMIN);
+		expect(bound?.userId).toBe(TEST_ADMIN.userId);
+		expect(
+			await service.check({ userId: "different-user", email: TEST_ADMIN.email })
+		).toEqual({ allowed: false, status: 403 });
+		expect(await service.check(TEST_ADMIN)).toEqual({ allowed: true, status: 200 });
+	});
+
+	it("rejects invalid email with field map and self-removal", async () => {
+		const { store } = createStore();
+		const service = createTrustedMembershipService({
+			ownerEmail: DEFAULT_OWNER_ADMIN_EMAIL,
+			store
+		});
+		await expect(service.add(TEST_OWNER, "nope")).rejects.toMatchObject({
+			kind: "validation",
+			fields: { email: "Invalid email" }
+		});
+		const added = await service.add(TEST_OWNER, TEST_ADMIN.email);
+		await service.bindOnLogin(TEST_ADMIN);
+		await expect(service.remove(TEST_ADMIN, added.id)).rejects.toMatchObject({ kind: "conflict" });
+		await expect(service.remove(TEST_OWNER, "missing")).rejects.toMatchObject({ kind: "not_found" });
 	});
 });

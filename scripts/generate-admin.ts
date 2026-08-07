@@ -15,14 +15,15 @@ export async function generateAdminResources(): Promise<string> {
 	return source;
 }
 
-export async function checkAdminResources(): Promise<void> {
+export async function checkAdminResources(options?: { outFile?: string }): Promise<void> {
+	const target = options?.outFile ?? outFile;
 	const resources = extractResources({ entities: appEntities });
 	const expected = formatResourcesModule(resources);
 	let actual = "";
 	try {
-		actual = await readFile(outFile, "utf8");
+		actual = await readFile(target, "utf8");
 	} catch {
-		throw new Error(`Generated admin resources missing at ${outFile}. Run npm run admin:generate.`);
+		throw new Error(`Generated admin resources missing at ${target}. Run npm run admin:generate.`);
 	}
 	if (actual !== expected) {
 		throw new Error("Generated admin resources are stale. Run npm run admin:generate.");
