@@ -8,18 +8,23 @@ export default defineConfig({
 		conditions: ["browser"]
 	},
 	test: {
-		include: ["src/**/*.{test,spec}.{js,ts}"],
+		include: ["src/**/*.{test,spec}.{js,ts}", "scripts/**/*.{test,spec}.{js,ts}"],
 		coverage: {
 			provider: "v8",
 			include: [
 				"src/lib/ai-chat/**/*.ts",
-				"src/routes/api/chat/**/*.ts"
+				"src/routes/api/chat/**/*.ts",
+				"src/lib/admin/**/*.ts"
 			],
 			exclude: [
 				"src/lib/ai-chat/**/*.test.ts",
 				"src/lib/ai-chat/test-utils/**",
 				"src/lib/ai-chat/e2e/**",
-				"src/routes/api/chat/**/*.test.ts"
+				"src/routes/api/chat/**/*.test.ts",
+				"src/lib/admin/**/*.test.ts",
+				"src/lib/admin/generated/**",
+				"src/lib/admin/test/**",
+				"src/lib/admin/components/**"
 			],
 			thresholds: {
 				statements: 80,
