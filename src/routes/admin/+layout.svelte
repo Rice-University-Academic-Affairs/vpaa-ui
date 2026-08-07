@@ -75,6 +75,7 @@
 						/>
 						<Button
 							onclick={() => {
+								persistTestIdentity(testIdentities.TEST_OWNER);
 								if (adminCtx) adminCtx.identity = testIdentities.TEST_OWNER;
 							}}
 						>

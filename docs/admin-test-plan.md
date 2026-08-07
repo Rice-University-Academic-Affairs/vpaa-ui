@@ -140,18 +140,18 @@ Gated behind env / `test:rayfin`. Not required for ordinary CI green.
 
 Before implementation, and again after each phase, confirm every Required Tests bullet from the implementation plan maps to an ID above:
 
-- [x] Generator tests → G1–G10
+- [x] Generator tests → G1–G10 (`scripts/generator.node.test.ts`, `npm run admin:check`)
 - [x] Unit conventions/forms/errors → C1–C9, F1–F9, E1
 - [x] Membership units → M1–M12
-- [x] Data contract → D1–D9
-- [x] E2E membership + CRUD → E2E1–E2E17
-- [x] Rayfin integration → R1–R6
+- [x] Data contract → D1–D9 (`MemoryAdminData`)
+- [x] E2E membership + CRUD → E2E1–E2E17 (`e2e/admin.spec.ts`)
+- [x] Rayfin integration → R1–R6 scaffolded behind `npm run test:rayfin` (skipped until backend available)
 - [x] Isolation / no production memory path → I1–I3
 - [x] Automation → S1–S3
 
-## Implementation gate order
+## Latest verification
 
-1. Write failing tests for A–E, H (unit) and F (e2e scaffolds).
-2. Review checklist; add any missing cases.
-3. Implement phases 1→8; do not advance until previously failing tests for that phase pass.
-4. Final pass: re-run full checklist; all no-Docker suites green.
+- `npm test` — Admin application unit + generator tests passed
+- `npm run test:e2e` — Admin + existing showcase E2E passed
+- `npm run admin:check` — generated registry fresh
+- `npm run test:rayfin` — optional; not required for ordinary green CI
