@@ -69,7 +69,6 @@
 						<Table.Header>
 							<Table.Row class="bg-muted/40 hover:bg-muted/40">
 								<Table.Head>Email</Table.Head>
-								<Table.Head>User ID</Table.Head>
 								<Table.Head>Created At</Table.Head>
 								<Table.Head>Created By</Table.Head>
 								<Table.Head>Role</Table.Head>
@@ -78,7 +77,7 @@
 						<Table.Body>
 							{#if result.items.length === 0}
 								<Table.Row>
-									<Table.Cell colspan={5} class="h-24 text-center">No records</Table.Cell>
+									<Table.Cell colspan={4} class="h-24 text-center">No records</Table.Cell>
 								</Table.Row>
 							{:else}
 								{#each result.items as member (member.id)}
@@ -95,7 +94,6 @@
 										}}
 									>
 										<Table.Cell>{member.email}</Table.Cell>
-										<Table.Cell>{member.userId ?? ""}</Table.Cell>
 										<Table.Cell>{member.createdAt}</Table.Cell>
 										<Table.Cell>{member.createdBy}</Table.Cell>
 										<Table.Cell>

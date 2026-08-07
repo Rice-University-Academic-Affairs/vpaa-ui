@@ -39,7 +39,6 @@
 				? {
 						id: member.id,
 						email: member.email,
-						userId: member.userId ?? "",
 						createdAt: member.createdAt,
 						createdBy: member.createdBy
 					}
@@ -111,7 +110,7 @@
 				</div>
 			{/each}
 		</div>
-		{#if !member.isOwner && member.userId !== admin.identity?.userId && normalizeEmail(member.email) !== normalizeEmail(admin.identity?.email ?? "")}
+		{#if !member.isOwner && normalizeEmail(member.email) !== normalizeEmail(admin.identity?.email ?? "")}
 			<div class="border-destructive/20 flex flex-col gap-3 border-t pt-6">
 				<p class="text-sm font-medium">Remove administrator</p>
 				<Button variant="destructive" onclick={() => (deleteOpen = true)} disabled={deleting}>

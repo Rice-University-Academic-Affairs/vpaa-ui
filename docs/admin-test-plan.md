@@ -79,9 +79,25 @@ Use deterministic test identities + in-memory membership service (excluded from 
 | M7 | List includes owner | Owner appears with `Owner` badge flag; not editable/deletable |
 | M8 | Add administrator | Valid admin adds by email; stamps `createdAt`/`createdBy` |
 | M9 | Remove administrator | Non-owner admin can remove another non-owner |
-| M10 | Bind on first login | Invited email with empty `userId` binds current Rayfin user id |
-| M11 | Match by userId first | Bound `userId` recognized before email match |
-| M12 | AdminUser system fields | `userId`, `createdAt`, `createdBy` read-only in admin field metadata |
+| M10 | Email allowlist authorization | Allowlisted email is admin without bind-on-login / userId |
+| M11 | Case-insensitive email match | Mixed-case session email matches stored allowlist row |
+| M12 | AdminUser system fields | Audit fields read-only in admin field metadata |
+
+## A-auth. Fabric auth unit tests (`src/lib/rayfin/auth.test.ts`, `src/lib/auth/navigation.test.ts`)
+
+Harness uses injectable `initEmbeddedAuth` returning real `OpaqueSession`-shaped objects — never stubs `identityFromSession` / `membership.check` under test.
+
+| ID | Assertion |
+| --- | --- |
+| A1 | Authenticated session email → normalized `AdminIdentity` |
+| A2 | Missing/blank email → unauthenticated |
+| A5 | Missing Fabric env vars throw clearly |
+| A6 | Injectable Fabric init receives workspace/project/portal options |
+| A7 | `loadAppAuth` returns normalized email through real mapper |
+| A8 | Fabric init failure → unauthenticated (no throw to layout) |
+| A9 | Fabric session email through real `resolveAdminAccess` + membership |
+| N1 | Primary nav omits Admin when `isAdmin: false` |
+| N2 | Primary nav includes Admin when `isAdmin: true` |
 
 ## E. Production isolation tests (`src/lib/admin/isolation.test.ts`)
 
@@ -101,8 +117,9 @@ Playwright against showcase `/admin` with test-only DI. No Docker/network.
 | E2E2 | Non-admin receives 403 at `/admin` |
 | E2E3 | Owner appears in administrator list; cannot be edited or removed |
 | E2E4 | Administrator adds another administrator by email |
-| E2E5 | Invited administrator recognized on sign-in and bound to user id |
+| E2E5 | Allowlisted administrator recognized on sign-in (email only; Admin nav appears) |
 | E2E6 | Non-owner administrator can add and remove additional administrators |
+| E2E-NAV | Admin primary-nav link visible only when membership.check allows |
 | E2E7 | Open a resource and see 25 records |
 | E2E8 | Next and Previous cursor navigation |
 | E2E9 | Sort a visible scalar column |

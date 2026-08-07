@@ -95,3 +95,15 @@ export { resolveOwnerAdminEmail, requireOwnerAdminEmail, normalizeEmail } from "
 export { getAdminContext, setAdminContext, type AdminContext } from "./admin/context.js";
 export { adminResources, getResourceBySlug, listResourceEntries, resourcePluralLabel } from "./admin/generated/resources.js";
 export { extractResources, formatResourcesModule } from "./admin/generator/extract.js";
+export {
+	bootstrapAuth,
+	identityFromSession,
+	loadAppAuth,
+	readFabricAuthOptions,
+	sessionToAppAuth,
+	type AppAuthSession,
+	type BootstrapAuthOptions,
+	type IAuthService
+} from "./rayfin/auth.js";
+export { getRayfinClient } from "./rayfin/client.js";
+export { buildPrimaryNavigation } from "./auth/navigation.js";

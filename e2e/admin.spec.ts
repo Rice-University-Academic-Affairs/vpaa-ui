@@ -29,6 +29,22 @@ test.describe("Admin application E2E", () => {
 		await expect(page.getByRole("link", { name: "Faculty Awards", exact: true })).toBeVisible();
 	});
 
+	test("E2E-NAV Admin tab only for admins", async ({ page }) => {
+		await page.goto("/");
+		await page.waitForFunction(() => Boolean(window.__ADMIN_TEST__));
+		await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Admin" })).toBeVisible();
+
+		await page.evaluate(() => {
+			const harness = window.__ADMIN_TEST__!;
+			harness.setIdentity(harness.identities.TEST_NON_ADMIN);
+		});
+		await page.goto("/");
+		await expect(
+			page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Admin" })
+		).toHaveCount(0);
+		await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Showcase" })).toBeVisible();
+	});
+
 	test("E2E2 non-admin receives 403 on root and deep links", async ({ page }) => {
 		await page.evaluate(() => {
 			const harness = window.__ADMIN_TEST__!;
@@ -44,53 +60,42 @@ test.describe("Admin application E2E", () => {
 
 	test("E2E3 owner appears and cannot be removed", async ({ page }) => {
 		await page.getByRole("link", { name: "Admin Users", exact: true }).click();
-		await expect(page.getByText("owner@example.edu")).toBeVisible();
+		await expect(page.getByRole("main").getByText("owner@example.edu")).toBeVisible();
 		await expect(page.locator('[data-slot="badge"]', { hasText: "Owner" })).toBeVisible();
-		await page.getByText("owner@example.edu").click();
+		await page.getByRole("main").getByRole("button", { name: /owner@example.edu/ }).click();
 		await expect(page.locator('[data-slot="badge"]', { hasText: "Owner" })).toBeVisible();
 		await expect(page.getByRole("button", { name: "Remove" })).toHaveCount(0);
 		await expect(page.getByRole("button", { name: "Delete", exact: true })).toHaveCount(0);
+		await expect(page.locator("#member-userId")).toHaveCount(0);
 	});
 
-	test("E2E4-E2E6 membership add/bind/remove", async ({ page }) => {
+	test("E2E4-E2E6 membership add/remove by email", async ({ page }) => {
 		await page.getByRole("link", { name: "Admin Users", exact: true }).click();
 		await page.getByRole("link", { name: "New" }).click();
 		await page.locator("#field-email").fill("admin@example.edu");
 		await page.getByRole("button", { name: "Create" }).click();
 		await expect(page.locator("#member-email")).toHaveValue("admin@example.edu");
+		await expect(page.locator("#member-userId")).toHaveCount(0);
 
 		await page.evaluate(() => {
 			const harness = window.__ADMIN_TEST__!;
 			harness.setIdentity(harness.identities.TEST_ADMIN);
 		});
+		await page.goto("/");
+		await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Admin" })).toBeVisible();
 		await page.goto("/admin/admin-users");
-		await expect(page.getByRole("heading", { name: "Admin" })).toBeVisible();
-		await expect(page.getByText("admin@example.edu")).toBeVisible();
-		await page.getByText("admin@example.edu").click();
-		await expect(page.locator("#member-userId")).toHaveValue("user-admin");
+		await expect(page.getByRole("main").getByText("admin@example.edu")).toBeVisible();
 
-		await page.goto("/admin/admin-users");
 		await page.getByRole("link", { name: "New" }).click();
 		await page.locator("#field-email").fill("invitee@example.edu");
 		await page.getByRole("button", { name: "Create" }).click();
 		await expect(page.locator("#member-email")).toHaveValue("invitee@example.edu");
 
-		await page.evaluate(() => {
-			const harness = window.__ADMIN_TEST__!;
-			harness.setIdentity(harness.identities.TEST_INVITEE);
-		});
-		await page.goto("/admin");
-		await expect(page.getByRole("heading", { name: "Admin" })).toBeVisible();
-		await page.evaluate(() => {
-			const harness = window.__ADMIN_TEST__!;
-			harness.setIdentity(harness.identities.TEST_ADMIN);
-		});
 		await page.goto("/admin/admin-users");
-		await page.getByText("invitee@example.edu").click();
-		await expect(page.locator("#member-userId")).toHaveValue("user-invitee");
+		await page.getByRole("main").getByRole("button", { name: /invitee@example.edu/ }).click();
 		await page.getByRole("button", { name: "Remove" }).click();
 		await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
-		await expect(page.getByText("invitee@example.edu")).toHaveCount(0);
+		await expect(page.getByRole("main").getByText("invitee@example.edu")).toHaveCount(0);
 	});
 
 	test("E2E7-E2E9 list, pagination, sort", async ({ page }) => {
@@ -190,7 +195,11 @@ test.describe("Admin application E2E", () => {
 		expect(trimmed).toEqual(["Admin Users", "Faculty Awards", "Products"]);
 
 		await page.evaluate(() => window.__ADMIN_TEST__!.setIdentity(null));
-		await page.reload();
+		await page.goto("/");
+		await expect(
+			page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Admin" })
+		).toHaveCount(0);
+		await page.goto("/admin");
 		await expect(page.getByText("Sign in required")).toBeVisible();
 		await page.getByRole("button", { name: "Sign in" }).click();
 		await expect(page.getByRole("heading", { name: "Admin" })).toBeVisible();

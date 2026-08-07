@@ -92,7 +92,6 @@ export function getTestAdminContext(): TestAdminHarness {
 
 	membership.add = wrapPersist(membership.add.bind(membership));
 	membership.remove = wrapPersist(membership.remove.bind(membership));
-	membership.bindOnLogin = wrapPersist(membership.bindOnLogin.bind(membership));
 	data.create = wrapPersist(data.create.bind(data));
 	data.update = wrapPersist(data.update.bind(data));
 	data.remove = wrapPersist(data.remove.bind(data));

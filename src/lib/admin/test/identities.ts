@@ -4,22 +4,18 @@ import type { AdminIdentity } from "../types.js";
 export { DEFAULT_OWNER_ADMIN_EMAIL };
 
 export const TEST_OWNER: AdminIdentity = {
-	userId: "user-owner",
 	email: DEFAULT_OWNER_ADMIN_EMAIL
 };
 
 export const TEST_ADMIN: AdminIdentity = {
-	userId: "user-admin",
 	email: "admin@example.edu"
 };
 
 export const TEST_INVITEE: AdminIdentity = {
-	userId: "user-invitee",
 	email: "invitee@example.edu"
 };
 
 export const TEST_NON_ADMIN: AdminIdentity = {
-	userId: "user-guest",
 	email: "guest@example.edu"
 };
 

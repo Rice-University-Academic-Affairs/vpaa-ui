@@ -79,14 +79,12 @@ export interface AdminData {
 }
 
 export type AdminIdentity = {
-	userId: string;
 	email: string;
 };
 
 export type AdminMembershipRecord = {
 	id: string;
 	email: string;
-	userId?: string | null;
 	createdAt: string;
 	createdBy: string;
 	isOwner: boolean;
@@ -101,7 +99,6 @@ export interface AdminMembershipService {
 	list(caller: AdminIdentity): Promise<MembershipListResult>;
 	add(caller: AdminIdentity, email: string): Promise<AdminMembershipRecord>;
 	remove(caller: AdminIdentity, id: string): Promise<void>;
-	bindOnLogin(identity: AdminIdentity): Promise<AdminMembershipRecord | null>;
 }
 
 export type FieldControl =

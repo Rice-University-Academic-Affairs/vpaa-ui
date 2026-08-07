@@ -52,7 +52,7 @@
 	<PageContainer>
 		<AdminErrorView
 			title="Sign in required"
-			message="Admin requires an authenticated Rayfin session."
+			message="Admin requires an authenticated Fabric / Rayfin session."
 			kind="unauthorized"
 		/>
 	</PageContainer>
@@ -61,7 +61,7 @@
 		<p class="caption">Loading admin…</p>
 	</PageContainer>
 {:else}
-	{#key adminCtx.identity?.userId ?? "anon"}
+	{#key adminCtx.identity?.email ?? "anon"}
 		{#await accessPromise}
 			<PageContainer>
 				<p class="caption">Checking access…</p>

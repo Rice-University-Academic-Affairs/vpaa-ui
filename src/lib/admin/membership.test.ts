@@ -3,8 +3,19 @@ import { MemoryAdminMembership } from "./membership.js";
 import { resolveAdminAccess } from "./access.js";
 import { normalizeEmail, requireOwnerAdminEmail, resolveOwnerAdminEmail } from "./owner-config.js";
 import { AdminError } from "./types.js";
-import { DEFAULT_OWNER_ADMIN_EMAIL, TEST_ADMIN, TEST_INVITEE, TEST_NON_ADMIN, TEST_OWNER } from "./test/identities.js";
-import { createTrustedMembershipService, type MembershipStore } from "../../../rayfin/functions/src/admin-membership.js";
+import {
+	DEFAULT_OWNER_ADMIN_EMAIL,
+	TEST_ADMIN,
+	TEST_INVITEE,
+	TEST_NON_ADMIN,
+	TEST_OWNER
+} from "./test/identities.js";
+import {
+	createTrustedMembershipService,
+	type MembershipStore
+} from "../../../rayfin/functions/src/admin-membership.js";
+import { identityFromSession, sessionToAppAuth } from "../rayfin/auth.js";
+import { createOpaqueSession } from "../rayfin/test/fake-fabric.js";
 
 describe("owner config", () => {
 	it("normalizes and validates owner email (M1, M2)", () => {
@@ -21,7 +32,7 @@ describe("owner config", () => {
 	});
 });
 
-describe("membership", () => {
+describe("membership email allowlist", () => {
 	let membership: MemoryAdminMembership;
 
 	beforeEach(() => {
@@ -35,13 +46,10 @@ describe("membership", () => {
 		expect(list.items[0]).toMatchObject({ email: TEST_OWNER.email, isOwner: true });
 	});
 
-	it("rejects non-admin, unauthenticated, and null-userId callers (M6, B3)", async () => {
+	it("rejects non-admin and unauthenticated callers (M6)", async () => {
 		expect(await membership.check(null)).toEqual({ allowed: false, status: 401 });
+		expect(await membership.check({ email: "" })).toEqual({ allowed: false, status: 401 });
 		expect(await membership.check(TEST_NON_ADMIN)).toEqual({ allowed: false, status: 403 });
-		await membership.add(TEST_OWNER, "pending@example.edu");
-		expect(
-			await membership.check({ userId: null as unknown as string, email: "attacker@evil.com" })
-		).toEqual({ allowed: false, status: 401 });
 		await expect(membership.add(TEST_NON_ADMIN, "x@example.edu")).rejects.toBeInstanceOf(AdminError);
 	});
 
@@ -49,39 +57,31 @@ describe("membership", () => {
 		const added = await membership.add(TEST_OWNER, "Admin@Example.EDU");
 		expect(added.email).toBe("admin@example.edu");
 		expect(added.createdBy).toBe(TEST_OWNER.email);
-		await expect(membership.add(TEST_OWNER, "admin@example.edu")).rejects.toMatchObject({ kind: "conflict" });
-		await expect(membership.add(TEST_OWNER, TEST_OWNER.email)).rejects.toMatchObject({ kind: "conflict" });
+		await expect(membership.add(TEST_OWNER, "admin@example.edu")).rejects.toMatchObject({
+			kind: "conflict"
+		});
+		await expect(membership.add(TEST_OWNER, TEST_OWNER.email)).rejects.toMatchObject({
+			kind: "conflict"
+		});
 		await expect(membership.remove(TEST_OWNER, "owner")).rejects.toMatchObject({ kind: "conflict" });
 	});
 
-	it("lets non-owner admin manage membership and bind invitees (M9-M11)", async () => {
+	it("lets allowlisted admins manage membership by email (M9)", async () => {
 		await membership.add(TEST_OWNER, TEST_ADMIN.email);
-		await membership.bindOnLogin(TEST_ADMIN);
+		expect(await membership.check(TEST_ADMIN)).toEqual({ allowed: true, status: 200 });
 		const invite = await membership.add(TEST_ADMIN, TEST_INVITEE.email);
-		expect(invite.userId == null).toBe(true);
-		const bound = await membership.bindOnLogin(TEST_INVITEE);
-		expect(bound?.userId).toBe(TEST_INVITEE.userId);
+		expect(invite.email).toBe(TEST_INVITEE.email);
 		await membership.remove(TEST_ADMIN, invite.id);
 		const list = await membership.list(TEST_ADMIN);
 		expect(list.items.some((row) => row.email === TEST_INVITEE.email)).toBe(false);
 	});
 
-	it("requires userId once a membership row is bound", async () => {
-		await membership.add(TEST_OWNER, TEST_ADMIN.email);
-		await membership.bindOnLogin(TEST_ADMIN);
-		expect(
-			await membership.check({ userId: "different-user", email: TEST_ADMIN.email })
-		).toEqual({ allowed: false, status: 403 });
-		expect(await membership.check(TEST_ADMIN)).toEqual({ allowed: true, status: 200 });
-	});
-
 	it("refuses self-removal", async () => {
 		const added = await membership.add(TEST_OWNER, TEST_ADMIN.email);
-		await membership.bindOnLogin(TEST_ADMIN);
 		await expect(membership.remove(TEST_ADMIN, added.id)).rejects.toMatchObject({ kind: "conflict" });
 	});
 
-	it("resolveAdminAccess covers auth gate outcomes", async () => {
+	it("resolveAdminAccess covers auth gate outcomes without bindOnLogin", async () => {
 		expect(await resolveAdminAccess(null, membership)).toMatchObject({ status: "unauthenticated" });
 		expect(await resolveAdminAccess(TEST_NON_ADMIN, membership)).toMatchObject({ status: "forbidden" });
 		expect(await resolveAdminAccess(TEST_OWNER, membership)).toMatchObject({ status: "allowed" });
@@ -94,7 +94,6 @@ describe("membership", () => {
 				{
 					id: "ghost",
 					email: DEFAULT_OWNER_ADMIN_EMAIL,
-					userId: null,
 					createdAt: "",
 					createdBy: "seed"
 				}
@@ -104,14 +103,23 @@ describe("membership", () => {
 		expect(list.items.filter((row) => row.email === DEFAULT_OWNER_ADMIN_EMAIL)).toHaveLength(1);
 		expect(list.items[0]?.id).toBe("owner");
 	});
+
+	it("accepts Fabric session email through the real access path (A9)", async () => {
+		const session = createOpaqueSession({ email: "Owner@Example.EDU" });
+		const identity = identityFromSession(session);
+		expect(sessionToAppAuth(session).authenticated).toBe(true);
+		expect(await resolveAdminAccess(identity, membership)).toMatchObject({
+			status: "allowed",
+			identity: { email: "owner@example.edu" }
+		});
+		const guest = identityFromSession(createOpaqueSession({ email: "guest@example.edu" }));
+		expect(await resolveAdminAccess(guest, membership)).toMatchObject({ status: "forbidden" });
+	});
 });
 
 describe("trusted membership helper", () => {
 	function createStore() {
-		const rows = new Map<
-			string,
-			{ id: string; email: string; userId?: string | null; createdAt: string; createdBy: string }
-		>();
+		const rows = new Map<string, { id: string; email: string; createdAt: string; createdBy: string }>();
 		const store: MembershipStore = {
 			async list() {
 				return [...rows.values()];
@@ -153,20 +161,18 @@ describe("trusted membership helper", () => {
 		expect(created.email).toBe("admin@example.edu");
 	});
 
-	it("binds invitees on login and locks to userId", async () => {
+	it("authorizes allowlisted emails without a userId bind step", async () => {
 		const { store } = createStore();
 		const service = createTrustedMembershipService({
 			ownerEmail: DEFAULT_OWNER_ADMIN_EMAIL,
 			store
 		});
-		const invite = await service.add(TEST_OWNER, TEST_ADMIN.email);
-		expect(invite.userId).toBeNull();
-		const bound = await service.bindOnLogin(TEST_ADMIN);
-		expect(bound?.userId).toBe(TEST_ADMIN.userId);
-		expect(
-			await service.check({ userId: "different-user", email: TEST_ADMIN.email })
-		).toEqual({ allowed: false, status: 403 });
+		await service.add(TEST_OWNER, TEST_ADMIN.email);
 		expect(await service.check(TEST_ADMIN)).toEqual({ allowed: true, status: 200 });
+		expect(await service.check({ email: "Admin@Example.EDU" })).toEqual({
+			allowed: true,
+			status: 200
+		});
 	});
 
 	it("rejects invalid email with field map and self-removal", async () => {
@@ -180,7 +186,6 @@ describe("trusted membership helper", () => {
 			fields: { email: "Invalid email" }
 		});
 		const added = await service.add(TEST_OWNER, TEST_ADMIN.email);
-		await service.bindOnLogin(TEST_ADMIN);
 		await expect(service.remove(TEST_ADMIN, added.id)).rejects.toMatchObject({ kind: "conflict" });
 		await expect(service.remove(TEST_OWNER, "missing")).rejects.toMatchObject({ kind: "not_found" });
 	});

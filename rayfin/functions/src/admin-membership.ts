@@ -6,14 +6,12 @@ import {
 } from "../../../src/lib/admin/owner-config.js";
 
 export type MembershipCaller = {
-	userId: string;
 	email: string;
 };
 
 export type MembershipRecord = {
 	id: string;
 	email: string;
-	userId?: string | null;
 	createdAt: string;
 	createdBy: string;
 	isOwner: boolean;
@@ -41,26 +39,25 @@ export function createTrustedMembershipService(options: {
 		return normalizeEmail(caller.email) === ownerEmail;
 	}
 
-	async function findMember(caller: MembershipCaller) {
+	async function findByEmail(email: string) {
+		const normalized = normalizeEmail(email);
 		const members = await options.store.list();
-		const byUser = members.find((row) => Boolean(row.userId) && row.userId === caller.userId);
-		if (byUser) return byUser;
-		return members.find(
-			(row) => !row.userId && normalizeEmail(row.email) === normalizeEmail(caller.email)
-		);
+		return members.find((row) => normalizeEmail(row.email) === normalized);
 	}
 
 	async function assertAdmin(caller: MembershipCaller | null) {
-		if (!caller?.userId || !caller.email) {
+		if (!caller?.email || !normalizeEmail(caller.email)) {
 			throw new AdminError("unauthorized", "Unauthorized", { status: 401 });
 		}
-		if (isOwner(caller) || (await findMember(caller))) return;
+		if (isOwner(caller) || (await findByEmail(caller.email))) return;
 		throw new AdminError("forbidden", "Forbidden", { status: 403 });
 	}
 
 	return {
 		async check(caller: MembershipCaller | null) {
-			if (!caller?.userId || !caller.email) return { allowed: false, status: 401 as const };
+			if (!caller?.email || !normalizeEmail(caller.email)) {
+				return { allowed: false, status: 401 as const };
+			}
 			try {
 				await assertAdmin(caller);
 				return { allowed: true, status: 200 as const };
@@ -77,7 +74,6 @@ export function createTrustedMembershipService(options: {
 					{
 						id: "owner",
 						email: ownerEmail,
-						userId: null,
 						createdAt: "",
 						createdBy: "system",
 						isOwner: true
@@ -106,7 +102,6 @@ export function createTrustedMembershipService(options: {
 			}
 			const created = await options.store.create({
 				email: normalized,
-				userId: null,
 				createdAt: new Date().toISOString(),
 				createdBy: normalizeEmail(caller.email)
 			});
@@ -125,29 +120,12 @@ export function createTrustedMembershipService(options: {
 			if (normalizeEmail(existing.email) === ownerEmail) {
 				throw new AdminError("conflict", "Owner cannot be deleted", { status: 409 });
 			}
-			if (
-				existing.userId === caller.userId ||
-				normalizeEmail(existing.email) === normalizeEmail(caller.email)
-			) {
+			if (normalizeEmail(existing.email) === normalizeEmail(caller.email)) {
 				throw new AdminError("conflict", "Administrators cannot remove themselves", {
 					status: 409
 				});
 			}
 			await options.store.remove(id);
-		},
-		async bindOnLogin(identity: MembershipCaller) {
-			if (!identity?.userId || !identity.email) return null;
-			if (isOwner(identity)) return null;
-			const members = await options.store.list();
-			const byUser = members.find((row) => Boolean(row.userId) && row.userId === identity.userId);
-			if (byUser) return { ...byUser, isOwner: false as const };
-			const byEmail = members.find(
-				(row) =>
-					!row.userId && normalizeEmail(row.email) === normalizeEmail(identity.email)
-			);
-			if (!byEmail) return null;
-			const bound = await options.store.update(byEmail.id, { userId: identity.userId });
-			return { ...bound, isOwner: false as const };
 		}
 	};
 }

@@ -114,11 +114,19 @@ This package is a UI library + showcase. Document the integration contract for F
 
 ## Suggested implementation order
 
-1. Phase B types/membership (pure, testable without Fabric embed).
-2. Phase C nav/route gating against harness email identities.
-3. Phase A auth bootstrap in showcase + docs for Fabric apps.
-4. Phase D test/doc updates.
+1. Phase B types/membership (pure, testable without Fabric embed). ✅
+2. Phase C nav/route gating against harness email identities. ✅
+3. Phase A auth bootstrap in showcase + docs for Fabric apps. ✅
+4. Phase D test/doc updates. ✅
 5. Wire RayfinAdminData when backend is ready (existing deferred work).
+
+## Implementation status (landed)
+
+- `src/lib/rayfin/{client,auth}.ts` + injectable Fabric init for authentic tests
+- Email-only `AdminIdentity` / membership / trusted helper (no bind-on-login)
+- `buildPrimaryNavigation({ isAdmin })` gates Admin tab
+- Root `+layout.ts` loads Fabric auth (or test harness) and sets `isAdmin`
+- E2E covers nav visibility + email allowlist membership
 
 ## Decision record
 

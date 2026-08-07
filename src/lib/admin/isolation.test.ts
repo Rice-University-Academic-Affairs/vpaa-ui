@@ -32,6 +32,15 @@ describe("production isolation (I1-I3)", () => {
 		expect(layout).toMatch(/\$lib\/admin\/test\/bootstrap/);
 	});
 
+	it("public package exports Fabric auth helpers but not the fake Fabric harness", () => {
+		const index = readFileSync(path.resolve("src/lib/index.ts"), "utf8");
+		expect(index).toMatch(/bootstrapAuth/);
+		expect(index).toMatch(/identityFromSession/);
+		expect(index).toMatch(/buildPrimaryNavigation/);
+		expect(index).not.toMatch(/fake-fabric/);
+		expect(index).not.toMatch(/createFakeFabricInit/);
+	});
+
 	it("owner default email lives only in the test identities module", () => {
 		const ownerConfig = readFileSync(path.resolve("src/lib/admin/owner-config.ts"), "utf8");
 		expect(ownerConfig).not.toMatch(/owner@example\.edu/);
