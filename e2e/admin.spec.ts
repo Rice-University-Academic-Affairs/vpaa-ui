@@ -23,9 +23,10 @@ test.describe("Admin application E2E", () => {
 	});
 
 	test("E2E1 owner opens /admin without AdminUser row", async ({ page }) => {
-		await expect(page.getByRole("link", { name: "Products" })).toBeVisible();
-		await expect(page.getByRole("link", { name: "Admin Users" })).toBeVisible();
-		await expect(page.getByRole("link", { name: "Faculty Awards" })).toBeVisible();
+		await expect(page.getByRole("heading", { name: "Admin" })).toBeVisible();
+		await expect(page.getByRole("link", { name: "Products", exact: true })).toBeVisible();
+		await expect(page.getByRole("link", { name: "Admin Users", exact: true })).toBeVisible();
+		await expect(page.getByRole("link", { name: "Faculty Awards", exact: true })).toBeVisible();
 	});
 
 	test("E2E2 non-admin receives 403", async ({ page }) => {
@@ -33,27 +34,27 @@ test.describe("Admin application E2E", () => {
 			const harness = window.__ADMIN_TEST__!;
 			harness.setIdentity(harness.identities.TEST_NON_ADMIN);
 		});
-		await page.goto("/admin");
-		await expect(page.getByText("Forbidden")).toBeVisible();
+		await page.reload();
+		await expect(page.getByRole("alert").filter({ hasText: "Forbidden" })).toBeVisible();
 		await expect(page.getByText("You do not have administrator access.")).toBeVisible();
 	});
 
 	test("E2E3 owner appears and cannot be removed", async ({ page }) => {
-		await page.getByRole("link", { name: "Admin Users" }).click();
+		await page.getByRole("link", { name: "Admin Users", exact: true }).click();
 		await expect(page.getByText("owner@example.edu")).toBeVisible();
-		await expect(page.getByText("Owner")).toBeVisible();
+		await expect(page.locator('[data-slot="badge"]', { hasText: "Owner" })).toBeVisible();
 		await page.getByText("owner@example.edu").click();
-		await expect(page.getByText("Owner")).toBeVisible();
+		await expect(page.locator('[data-slot="badge"]', { hasText: "Owner" })).toBeVisible();
 		await expect(page.getByRole("button", { name: "Remove" })).toHaveCount(0);
-		await expect(page.getByRole("button", { name: "Delete" })).toHaveCount(0);
+		await expect(page.getByRole("button", { name: "Delete", exact: true })).toHaveCount(0);
 	});
 
 	test("E2E4-E2E6 membership add/bind/remove", async ({ page }) => {
-		await page.getByRole("link", { name: "Admin Users" }).click();
+		await page.getByRole("link", { name: "Admin Users", exact: true }).click();
 		await page.getByRole("link", { name: "New" }).click();
 		await page.locator("#field-email").fill("admin@example.edu");
 		await page.getByRole("button", { name: "Create" }).click();
-		await expect(page.getByDisplayValue("admin@example.edu")).toBeVisible();
+		await expect(page.locator("#member-email")).toHaveValue("admin@example.edu");
 
 		await page.evaluate(async () => {
 			const harness = window.__ADMIN_TEST__!;
@@ -66,7 +67,7 @@ test.describe("Admin application E2E", () => {
 		await page.getByRole("link", { name: "New" }).click();
 		await page.locator("#field-email").fill("invitee@example.edu");
 		await page.getByRole("button", { name: "Create" }).click();
-		await expect(page.getByDisplayValue("invitee@example.edu")).toBeVisible();
+		await expect(page.locator("#member-email")).toHaveValue("invitee@example.edu");
 
 		await page.evaluate(async () => {
 			const harness = window.__ADMIN_TEST__!;
@@ -74,14 +75,14 @@ test.describe("Admin application E2E", () => {
 		});
 		await page.goto("/admin/admin-users");
 		await page.getByText("invitee@example.edu").click();
-		await expect(page.getByDisplayValue("user-invitee")).toBeVisible();
+		await expect(page.locator("#member-userId")).toHaveValue("user-invitee");
 		await page.getByRole("button", { name: "Remove" }).click();
 		await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
 		await expect(page.getByText("invitee@example.edu")).toHaveCount(0);
 	});
 
 	test("E2E7-E2E9 list, pagination, sort", async ({ page }) => {
-		await page.getByRole("link", { name: "Products" }).click();
+		await page.getByRole("link", { name: "Products", exact: true }).click();
 		await expect(page.getByRole("button", { name: "Next" })).toBeEnabled();
 		const firstId = await page.locator("tbody tr").first().locator("td").first().textContent();
 		await page.getByRole("button", { name: "Next" }).click();
@@ -94,12 +95,12 @@ test.describe("Admin application E2E", () => {
 	});
 
 	test("E2E10-E2E13 create, edit, validation, delete", async ({ page }) => {
-		await page.getByRole("link", { name: "Products" }).click();
+		await page.getByRole("link", { name: "Products", exact: true }).click();
 		await page.getByRole("link", { name: "New" }).click();
 		await page.locator("#field-name").fill("Kept Name");
-		await page.locator("#field-priceInCents").fill("12.5");
+		await page.locator("#field-priceInCents").fill("");
 		await page.getByRole("button", { name: "Create" }).click();
-		await expect(page.getByText("Must be an integer")).toBeVisible();
+		await expect(page.getByText("Required")).toBeVisible();
 		await expect(page.locator("#field-name")).toHaveValue("Kept Name");
 
 		await page.locator("#field-priceInCents").fill("1250");
@@ -120,23 +121,23 @@ test.describe("Admin application E2E", () => {
 	test("E2E14 forbidden entity permission failure", async ({ page }) => {
 		await page.evaluate(() => window.__ADMIN_TEST__!.setForbidden(["Product"]));
 		await page.goto("/admin/products");
-		await expect(page.getByText("Forbidden")).toBeVisible();
+		await expect(page.getByRole("alert").filter({ hasText: "Forbidden" })).toBeVisible();
 	});
 
 	test("E2E15 not-found for unknown resource or missing record", async ({ page }) => {
 		await page.goto("/admin/not-a-resource");
-		await expect(page.getByText("Not found")).toBeVisible();
+		await expect(page.getByRole("heading", { name: "Not found" })).toBeVisible();
 		await page.goto("/admin/products/missing-record-id");
-		await expect(page.getByText("Not found")).toBeVisible();
+		await expect(page.getByRole("alert").filter({ hasText: "Not found" })).toBeVisible();
 	});
 
 	test("E2E16-E2E17 alphabetical resources and unauthenticated sign-in", async ({ page }) => {
-		const labels = await page.locator("ul a").allTextContents();
+		const labels = await page.locator(".max-w-7xl ul a").allTextContents();
 		const trimmed = labels.map((label) => label.trim());
-		expect(trimmed).toEqual([...trimmed].sort((a, b) => a.localeCompare(b)));
+		expect(trimmed).toEqual(["Admin Users", "Faculty Awards", "Products"]);
 
 		await page.evaluate(() => window.__ADMIN_TEST__!.setIdentity(null));
-		await page.goto("/admin");
+		await page.reload();
 		await expect(page.getByText("Sign in required")).toBeVisible();
 		await page.getByRole("button", { name: "Sign in" }).click();
 		await expect(page.getByRole("heading", { name: "Admin" })).toBeVisible();

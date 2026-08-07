@@ -1,10 +1,14 @@
 <script lang="ts">
 	import type { Snippet } from "svelte";
-	import { onMount } from "svelte";
-	import { setAdminContext, type AdminContext } from "$lib/admin/context.js";
+	import { browser } from "$app/environment";
+	import { setAdminContext } from "$lib/admin/context.js";
 	import { resolveAdminAccess } from "$lib/admin/access.js";
-	import { adminResources as resources } from "$lib/admin/generated/resources.js";
-	import type { AdminData, AdminIdentity, AdminMembershipService } from "$lib/admin/types.js";
+	import {
+		getTestAdminContext,
+		persistTestIdentity,
+		testIdentities,
+		type TestAdminHarness
+	} from "$lib/admin/test/bootstrap.js";
 	import AdminErrorView from "$lib/admin/components/AdminError.svelte";
 	import { PageContainer } from "$lib/components/page/index.js";
 	import { Button } from "$lib/components/ui/button/index.js";
@@ -14,60 +18,26 @@
 	const isAdminTestMode =
 		import.meta.env.DEV || import.meta.env.PUBLIC_ADMIN_TEST_MODE === "true";
 
-	let ready = $state(!isAdminTestMode);
-	let adminCtx = $state<AdminContext | null>(null);
-	let testOwner = $state<AdminIdentity | null>(null);
+	let adminCtx = $state<TestAdminHarness | null>(
+		isAdminTestMode ? getTestAdminContext() : null
+	);
 
-	onMount(() => {
-		if (!isAdminTestMode) return;
-		void (async () => {
-			const [{ MemoryAdminData }, { MemoryAdminMembership }, { resolveOwnerAdminEmail }, identities] =
-				await Promise.all([
-					import("$lib/admin/memory-admin-data.js"),
-					import("$lib/admin/membership.js"),
-					import("$lib/admin/owner-config.js"),
-					import("$lib/admin/test/identities.js")
-				]);
-
-			const data = new MemoryAdminData({
-				resources,
-				seed: { Product: identities.createProductSeed(30) }
-			});
-			const membership = new MemoryAdminMembership({
-				ownerEmail: resolveOwnerAdminEmail()
-			});
-
-			function resetData() {
-				data.reset({ Product: identities.createProductSeed(30) });
-				membership.reset();
-			}
-
-			const ctx: AdminContext = {
-				resources,
-				data: data as AdminData,
-				membership: membership as AdminMembershipService,
-				identity: identities.TEST_OWNER,
-				mode: "memory"
-			};
-			adminCtx = ctx;
-			testOwner = identities.TEST_OWNER;
-			setAdminContext(ctx);
-
+	if (isAdminTestMode && adminCtx) {
+		setAdminContext(adminCtx);
+		if (browser) {
 			window.__ADMIN_TEST__ = {
 				setIdentity: (next) => {
+					persistTestIdentity(next);
 					if (adminCtx) adminCtx.identity = next;
 				},
-				resetData,
-				setForbidden: (names: string[]) => {
-					data.setForbidden(names);
-				},
-				membership,
-				data,
-				identities
+				resetData: () => adminCtx?.resetData(),
+				setForbidden: (names) => adminCtx?.setForbidden(names),
+				membership: adminCtx.membership,
+				data: adminCtx.data,
+				identities: testIdentities
 			};
-			ready = true;
-		})();
-	});
+		}
+	}
 
 	const accessPromise = $derived(
 		adminCtx
@@ -84,7 +54,7 @@
 			kind="unauthorized"
 		/>
 	</PageContainer>
-{:else if !ready || !adminCtx}
+{:else if !adminCtx}
 	<PageContainer>
 		<p class="caption">Loading admin…</p>
 	</PageContainer>
@@ -103,15 +73,13 @@
 							message="Sign in with Rayfin to access Admin."
 							kind="unauthorized"
 						/>
-						{#if testOwner}
-							<Button
-								onclick={() => {
-									if (adminCtx && testOwner) adminCtx.identity = testOwner;
-								}}
-							>
-								Sign in
-							</Button>
-						{/if}
+						<Button
+							onclick={() => {
+								if (adminCtx) adminCtx.identity = testIdentities.TEST_OWNER;
+							}}
+						>
+							Sign in
+						</Button>
 					</div>
 				</PageContainer>
 			{:else if access.status === "forbidden"}

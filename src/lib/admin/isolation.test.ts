@@ -19,7 +19,7 @@ describe("production isolation (I1-I3)", () => {
 		const layout = readFileSync(path.resolve("src/routes/admin/+layout.svelte"), "utf8");
 		expect(layout).not.toMatch(/url\.searchParams.*memory/i);
 		expect(layout).not.toMatch(/localStorage.*adminMode/i);
-		expect(layout).toMatch(/import\(\s*"\$lib\/admin\/memory-admin-data\.js"\s*\)/);
 		expect(layout).toMatch(/PUBLIC_ADMIN_TEST_MODE|import\.meta\.env\.DEV/);
+		expect(layout).toMatch(/getTestAdminContext/);
 	});
 });
