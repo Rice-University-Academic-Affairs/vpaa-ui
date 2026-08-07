@@ -11,6 +11,7 @@
 	import { humanizeName } from "$lib/admin/conventions.js";
 	import { normalizeEmail } from "$lib/admin/owner-config.js";
 	import { mapAdminError } from "$lib/admin/errors.js";
+	import { createDeleteInspectGate } from "$lib/admin/delete-inspect.js";
 	import AdminErrorView from "$lib/admin/components/AdminError.svelte";
 	import RecordForm from "$lib/admin/components/RecordForm.svelte";
 	import DeleteRecordDialog from "$lib/admin/components/DeleteRecordDialog.svelte";
@@ -54,20 +55,29 @@
 	let deleteOpen = $state(false);
 	let deleteImpact = $state<Awaited<ReturnType<typeof admin.data.inspectRemove>> | null>(null);
 	let inspectingDelete = $state(false);
+	const deleteInspectGate = createDeleteInspectGate();
 
 	async function openDeleteDialog() {
+		const token = deleteInspectGate.begin();
 		formError = null;
 		deleteImpact = null;
 		deleteOpen = true;
 		if (resource.name === "AdminUser") return;
 		inspectingDelete = true;
 		try {
-			deleteImpact = await admin.data.inspectRemove(resource.name, id);
+			const impact = await admin.data.inspectRemove(resource.name, id);
+			if (deleteInspectGate.isCurrent(token)) {
+				deleteImpact = impact;
+			}
 		} catch (err) {
-			formError = mapAdminError(err);
-			deleteOpen = false;
+			if (deleteInspectGate.isCurrent(token)) {
+				formError = mapAdminError(err);
+				deleteOpen = false;
+			}
 		} finally {
-			inspectingDelete = false;
+			if (deleteInspectGate.isCurrent(token)) {
+				inspectingDelete = false;
+			}
 		}
 	}
 
@@ -155,7 +165,16 @@
 {/if}
 
 <DeleteRecordDialog
-	bind:open={deleteOpen}
+	bind:open={
+		() => deleteOpen,
+		(value) => {
+			deleteOpen = value;
+			if (!value) {
+				deleteInspectGate.invalidate();
+				inspectingDelete = false;
+			}
+		}
+	}
 	onConfirm={confirmDelete}
 	loading={deleting}
 	impact={deleteImpact}

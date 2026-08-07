@@ -3,6 +3,7 @@
 	import * as Dialog from "$lib/components/ui/dialog/index.js";
 	import type { AdminDeleteImpact } from "$lib/admin/types.js";
 	import { humanizeName, pluralizeLabel } from "$lib/admin/conventions.js";
+	import { canConfirmAdminDelete } from "$lib/admin/delete-inspect.js";
 
 	type Props = {
 		open: boolean;
@@ -20,7 +21,7 @@
 		inspecting = false
 	}: Props = $props();
 
-	const canDelete = $derived(!impact || impact.canDelete);
+	const canDelete = $derived(canConfirmAdminDelete(inspecting, impact));
 	const title = $derived(
 		!impact
 			? "Delete record"
@@ -71,7 +72,7 @@
 		{/if}
 		<Dialog.Footer>
 			<Button variant="outline" onclick={() => (open = false)} disabled={loading}>Cancel</Button>
-			{#if canDelete && !inspecting}
+			{#if canDelete}
 				<Button
 					variant="destructive"
 					disabled={loading}
