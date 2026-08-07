@@ -100,31 +100,6 @@ function mergeBuckets(buckets: DeleteChildBucket[]): DeleteChildBucket[] {
 	return [...byKey.values()];
 }
 
-function sameParentSiblingKeys(
-	parentChildren: readonly AdminChildRelation[],
-	childResource: string,
-	ownerForeignKey: string
-): string[] {
-	return parentChildren
-		.filter((child) => child.childResource === childResource && child.foreignKey !== ownerForeignKey)
-		.map((child) => child.foreignKey);
-}
-
-function isSharedBySameParentSiblings(
-	record: AdminRecord,
-	ownerForeignKey: string,
-	parentId: string,
-	siblingKeys: readonly string[]
-): boolean {
-	for (const key of siblingKeys) {
-		const value = record[key];
-		if (value == null || value === "") continue;
-		if (String(value) === String(parentId)) continue;
-		return true;
-	}
-	return false;
-}
-
 async function markCascadeClosure(
 	resources: AdminResources,
 	store: CascadeStore,
@@ -132,39 +107,53 @@ async function markCascadeClosure(
 	id: string,
 	doomed: Set<string>
 ): Promise<void> {
-	const key = `${resource}:${id}`;
-	if (doomed.has(key)) return;
-	doomed.add(key);
-
-	const parentChildren = childrenOf(resources, resource);
-	for (const relation of parentChildren) {
-		if (relation.policy !== "cascade") continue;
-		const siblings = sameParentSiblingKeys(parentChildren, relation.childResource, relation.foreignKey);
-		const rows = matchChildren(
-			await store.listAll(relation.childResource),
-			relation.foreignKey,
-			id
-		).filter((row) => !isSharedBySameParentSiblings(row, relation.foreignKey, id, siblings));
-		for (const row of rows) {
-			await markCascadeClosure(resources, store, relation.childResource, String(row.id), doomed);
+	doomed.add(`${resource}:${id}`);
+	let changed = true;
+	while (changed) {
+		changed = false;
+		for (const key of [...doomed]) {
+			const sep = key.indexOf(":");
+			const nodeResource = key.slice(0, sep);
+			const nodeId = key.slice(sep + 1);
+			const parentChildren = childrenOf(resources, nodeResource);
+			for (const relation of parentChildren) {
+				if (relation.policy !== "cascade") continue;
+				const inbound = inboundChildEdges(resources, relation.childResource);
+				const rows = matchChildren(
+					await store.listAll(relation.childResource),
+					relation.foreignKey,
+					nodeId
+				);
+				for (const row of rows) {
+					if (isSharedChildRecord(row, relation.foreignKey, nodeId, inbound, doomed)) continue;
+					const childKey = `${relation.childResource}:${String(row.id)}`;
+					if (!doomed.has(childKey)) {
+						doomed.add(childKey);
+						changed = true;
+					}
+				}
+			}
 		}
 	}
 }
 
 function willCascadeDeleteRow(
 	resources: AdminResources,
-	parentResource: string,
-	parentId: string,
+	_parentResource: string,
+	_parentId: string,
 	childResource: string,
 	row: AdminRecord,
 	doomed: ReadonlySet<string>
 ): boolean {
-	const parentChildren = childrenOf(resources, parentResource);
-	for (const relation of parentChildren) {
-		if (relation.childResource !== childResource || relation.policy !== "cascade") continue;
-		if (String(row[relation.foreignKey] ?? "") !== String(parentId)) continue;
-		const inbound = inboundChildEdges(resources, childResource);
-		if (!isSharedChildRecord(row, relation.foreignKey, parentId, inbound, doomed)) return true;
+	const inbound = inboundChildEdges(resources, childResource);
+	for (const edge of inbound) {
+		if (edge.policy !== "cascade") continue;
+		const ownerId = row[edge.foreignKey];
+		if (ownerId == null || ownerId === "") continue;
+		if (!doomed.has(`${edge.parentResource}:${String(ownerId)}`)) continue;
+		if (!isSharedChildRecord(row, edge.foreignKey, String(ownerId), inbound, doomed)) {
+			return true;
+		}
 	}
 	return false;
 }

@@ -160,6 +160,18 @@ test.describe("Admin application E2E", () => {
 		await expect(page.locator("tbody tr").first().locator("td").first()).toHaveText(page1First ?? "");
 	});
 
+	test("S-E2E double Create does not insert duplicate products", async ({ page }) => {
+		await page.getByRole("link", { name: "Products", exact: true }).click();
+		await page.getByRole("link", { name: "New" }).click();
+		await page.locator("#field-name").fill("Only Once Product");
+		await page.locator("#field-priceInCents").fill("999");
+		const create = page.getByRole("button", { name: "Create" });
+		await Promise.all([create.click(), create.click()]);
+		await expect(page).toHaveURL(/\/admin\/products\/(?!new$)[^/]+$/);
+		await page.goto("/admin/products");
+		await expect(page.getByRole("main").getByText("Only Once Product")).toHaveCount(1);
+	});
+
 	test("E2E10-E2E13 create, edit, validation, delete", async ({ page }) => {
 		await page.getByRole("link", { name: "Products", exact: true }).click();
 		await page.getByRole("link", { name: "New" }).click();

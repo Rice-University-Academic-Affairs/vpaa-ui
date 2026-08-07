@@ -38,6 +38,7 @@
 	let submitting = $state(false);
 
 	async function submitCreate() {
+		if (submitting) return;
 		submitting = true;
 		error = null;
 		fieldErrors = {};

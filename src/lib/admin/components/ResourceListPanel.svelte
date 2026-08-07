@@ -136,7 +136,7 @@
 			{onSort}
 			onRowClick={(item) => goEdit(item.id)}
 			{hasPrev}
-			hasNext={result.hasNextPage}
+			hasNext={Boolean(result.hasNextPage && result.endCursor)}
 			{onPrev}
 			onNext={() => {
 				const next = advanceListPage({

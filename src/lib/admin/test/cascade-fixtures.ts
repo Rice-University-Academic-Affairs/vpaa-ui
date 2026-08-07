@@ -160,6 +160,54 @@ export const cascadeFixtureResources: AdminResources = {
 			{ name: "rightId", type: "string", nullable: true, readOnly: false, generated: false }
 		],
 		children: []
+	},
+	Org: {
+		name: "Org",
+		slug: "orgs",
+		fields: [
+			{ name: "id", type: "string", nullable: false, readOnly: true, generated: true, primaryKey: true },
+			{ name: "name", type: "string", nullable: false, readOnly: false, generated: false }
+		],
+		children: [
+			{
+				childResource: "Team",
+				foreignKey: "orgId",
+				policy: "cascade",
+				parentField: "teams"
+			}
+		]
+	},
+	Team: {
+		name: "Team",
+		slug: "teams",
+		fields: [
+			{ name: "id", type: "string", nullable: false, readOnly: true, generated: true, primaryKey: true },
+			{ name: "orgId", type: "string", nullable: false, readOnly: false, generated: false },
+			{ name: "name", type: "string", nullable: false, readOnly: false, generated: false }
+		],
+		children: [
+			{
+				childResource: "TeamLink",
+				foreignKey: "teamId",
+				policy: "cascade",
+				parentField: "links"
+			},
+			{
+				childResource: "TeamLink",
+				foreignKey: "otherTeamId",
+				policy: "restrict"
+			}
+		]
+	},
+	TeamLink: {
+		name: "TeamLink",
+		slug: "team-links",
+		fields: [
+			{ name: "id", type: "string", nullable: false, readOnly: true, generated: true, primaryKey: true },
+			{ name: "teamId", type: "string", nullable: false, readOnly: false, generated: false },
+			{ name: "otherTeamId", type: "string", nullable: true, readOnly: false, generated: false }
+		],
+		children: []
 	}
 };
 

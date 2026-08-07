@@ -148,8 +148,13 @@ export class RayfinAdminData implements AdminData {
 					const page = await this.list(resource, { limit: 200, cursor });
 					items.push(...page.items);
 					if (page.items.length === 0) break;
-					if (!page.hasNextPage || !page.endCursor) break;
-					if (page.endCursor === cursor) break;
+					if (!page.hasNextPage) break;
+					if (!page.endCursor || page.endCursor === cursor) {
+						throw new AdminError(
+							"unexpected",
+							`Rayfin list for ${resource} reported another page without a usable cursor.`
+						);
+					}
 					cursor = page.endCursor;
 				}
 				return items;

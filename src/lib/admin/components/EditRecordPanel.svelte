@@ -82,6 +82,7 @@
 	}
 
 	async function submitUpdate() {
+		if (submitting) return;
 		if (resource.name === "AdminUser") return;
 		submitting = true;
 		formError = null;
@@ -100,6 +101,7 @@
 	}
 
 	async function confirmDelete() {
+		if (deleting) return;
 		deleting = true;
 		formError = null;
 		try {

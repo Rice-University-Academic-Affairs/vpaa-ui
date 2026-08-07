@@ -331,6 +331,21 @@ describe("cascade delete inspectRemove / remove (unit)", () => {
 		expect(await data.get("DiamondLeft", "left-1")).not.toBeNull();
 		expect(await data.get("DiamondRight", "right-1")).not.toBeNull();
 	});
+
+	it("CD22 org delete cascades team link shared across doomed sibling teams", async () => {
+		await data.create("Org", { id: "org-1", name: "Rice" });
+		await data.create("Team", { id: "team-a", orgId: "org-1", name: "A" });
+		await data.create("Team", { id: "team-b", orgId: "org-1", name: "B" });
+		await data.create("TeamLink", { id: "link-1", teamId: "team-a", otherTeamId: "team-b" });
+		const impact = await data.inspectRemove("Org", "org-1");
+		expect(impact.canDelete).toBe(true);
+		expect(impact.blocking).toEqual([]);
+		await data.remove("Org", "org-1");
+		expect(await data.get("Org", "org-1")).toBeNull();
+		expect(await data.get("Team", "team-a")).toBeNull();
+		expect(await data.get("Team", "team-b")).toBeNull();
+		expect(await data.get("TeamLink", "link-1")).toBeNull();
+	});
 });
 
 describe("cascade delete TOCTOU guards", () => {
