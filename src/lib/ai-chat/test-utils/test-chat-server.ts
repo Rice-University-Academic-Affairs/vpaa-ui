@@ -1,6 +1,7 @@
 import http from "node:http";
 import { Readable } from "node:stream";
 import { createChatRouteHandler } from "../server/create-chat-route-handler.js";
+import { createMockChatStream } from "../../../routes/api/chat/mock-stream.js";
 import { getDemoStatsDef } from "../../../routes/api/chat/tools.js";
 import { createTestChatStream } from "./test-chat-stream.js";
 
@@ -23,6 +24,10 @@ export type TestChatServer = {
 	url: string;
 	requests: CapturedChatRequest[];
 	close: () => Promise<void>;
+};
+
+export type StartTestChatServerOptions = {
+	stream?: "prod" | "test";
 };
 
 function readRequestBody(request: http.IncomingMessage): Promise<string> {
@@ -49,7 +54,10 @@ async function writeWebResponse(nodeResponse: http.ServerResponse, webResponse: 
 		.pipe(nodeResponse);
 }
 
-export async function startTestChatServer(): Promise<TestChatServer> {
+export async function startTestChatServer(
+	options: StartTestChatServerOptions = {}
+): Promise<TestChatServer> {
+	const streamMode = options.stream ?? "test";
 	const requests: CapturedChatRequest[] = [];
 
 	const handler = createChatRouteHandler({
@@ -63,14 +71,19 @@ export async function startTestChatServer(): Promise<TestChatServer> {
 				resume: context.resume
 			});
 		},
-		createStream: (context) =>
-			createTestChatStream({
+		createStream: (context) => {
+			const params = {
 				messages: context.messages,
 				threadId: context.threadId,
 				runId: context.runId,
 				tools: context.allTools,
 				resume: context.resume
-			})
+			};
+
+			return streamMode === "prod"
+				? createMockChatStream(params)
+				: createTestChatStream(params);
+		}
 	});
 
 	const server = http.createServer((request, response) => {
@@ -113,4 +126,8 @@ export async function startTestChatServer(): Promise<TestChatServer> {
 				});
 			})
 	};
+}
+
+export function startProdChatServer(): Promise<TestChatServer> {
+	return startTestChatServer({ stream: "prod" });
 }

@@ -2,7 +2,9 @@ import { expect, type Locator, type Page } from "@playwright/test";
 
 export async function gotoShowcase(page: Page) {
 	await page.goto("/", { waitUntil: "networkidle" });
-	await page.waitForTimeout(300);
+	await expect(page.locator("[data-app-ready][data-hydrated]")).toBeVisible();
+	await expect(page.getByRole("heading", { name: "Component showcase" })).toBeVisible();
+	await expect(page.getByRole("heading", { name: "All faculty" })).toBeVisible();
 }
 
 export function facultyTable(page: Page): Locator {

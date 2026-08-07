@@ -56,7 +56,9 @@ describe("AI chat integration", () => {
 		await session.chat!.sendMessage("Faculty trends");
 		await waitForChatIdle(session.chat!);
 
-		expect(assistantText(session.chat!.messages)).toContain("Echo: Faculty trends");
+		expect(assistantText(session.chat!.messages)).toContain(
+			'Thanks for your question about "Faculty trends"'
+		);
 		expect(server.requests).toHaveLength(1);
 		expect(server.requests[0]?.threadId).toBe("thread-basic");
 	});
@@ -202,13 +204,16 @@ describe("AI chat integration", () => {
 
 		await waitFor(() => {
 			const thread = session.threads.find((entry) => entry.id === "thread-metadata");
-			return thread?.title === "Budget question" && Boolean(thread.preview?.includes("Echo:"));
+			return (
+				thread?.title === "Budget question" &&
+				Boolean(thread.preview?.includes("Thanks for your question"))
+			);
 		});
 
 		const thread = await storage.getThread("thread-metadata");
 		expect(thread).toMatchObject({
 			title: "Budget question",
-			preview: expect.stringContaining("Echo: Budget question")
+			preview: expect.stringContaining("Thanks for your question")
 		});
 		expect(session.threads.find((entry) => entry.id === "thread-metadata")).toMatchObject({
 			title: "Budget question"

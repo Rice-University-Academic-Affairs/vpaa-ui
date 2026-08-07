@@ -1,51 +1,45 @@
-import { render, screen } from "@testing-library/svelte";
+import { cleanup, render, screen } from "@testing-library/svelte";
 import { userEvent } from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createMemoryChatStorage } from "$lib/ai-chat/core/storage.js";
+import {
+	createMockChatClient,
+	flushAsyncWork
+} from "$lib/ai-chat/test-utils/mock-chat-client.js";
+import { mountSession } from "$lib/ai-chat/test-utils/mount-session.js";
 import type { AiChatSession } from "$lib/ai-chat/session/create-session.svelte.js";
 import AiChatPanel from "./AiChatPanel.svelte";
 
-const threads = [
-	{ id: "thread-a", title: "Alpha", preview: "Preview A", updatedAt: "2026-03-03" },
-	{ id: "thread-b", title: "Beta", preview: "Preview B", updatedAt: "2026-03-02" }
-];
+const createdClients: ReturnType<typeof createMockChatClient>[] = [];
 
-function createMockSession(): AiChatSession {
-	return {
-		get chat() {
-			return {
-				messages: [],
-				isLoading: false,
-				error: null,
-				sendMessage: vi.fn()
-			};
-		},
-		get threads() {
-			return threads;
-		},
-		get selectedThreadId() {
-			return "thread-a";
-		},
-		get selectedThread() {
-			return threads[0] ?? null;
-		},
-		get isReady() {
-			return true;
-		},
-		get bootstrapError() {
-			return null;
-		},
-		refreshThreads: vi.fn(),
-		selectThread: vi.fn(),
-		createThread: vi.fn(),
-		deleteThread: vi.fn(),
-		dispose: vi.fn()
-	};
-}
+vi.mock("$lib/ai-chat/client/create-chat.svelte.js", () => ({
+	createAiChat: (options: { threadId?: string; onFinish?: () => void }) => {
+		const client = createMockChatClient({
+			threadId: options.threadId,
+			onFinish: options.onFinish
+		});
+		createdClients.push(client);
+		return client;
+	}
+}));
+
+afterEach(() => {
+	cleanup();
+	createdClients.length = 0;
+});
 
 describe("AiChatPanel", () => {
-	it("wires thread list actions to the session", async () => {
-		const session = createMockSession();
+	let session: AiChatSession;
 
+	beforeEach(async () => {
+		const storage = createMemoryChatStorage([
+			{ id: "thread-a", title: "Alpha", preview: "Preview A", updatedAt: "2026-03-03" },
+			{ id: "thread-b", title: "Beta", preview: "Preview B", updatedAt: "2026-03-02" }
+		]);
+		session = await mountSession({ storage, threadId: "thread-a" });
+	});
+
+	it("wires thread list actions to a real session", async () => {
 		render(AiChatPanel, {
 			props: {
 				open: true,
@@ -55,17 +49,18 @@ describe("AiChatPanel", () => {
 
 		expect(screen.getByRole("heading", { name: "Alpha" })).toBeInTheDocument();
 
-		await userEvent.click(
-			screen.getByRole("button", { name: "Beta Preview B" })
-		);
-		expect(session.selectThread).toHaveBeenCalledWith("thread-b");
+		await userEvent.click(screen.getByRole("button", { name: "Beta Preview B" }));
+		await flushAsyncWork();
+		expect(session.selectedThreadId).toBe("thread-b");
 
 		await userEvent.click(screen.getByRole("button", { name: "New conversation" }));
-		expect(session.createThread).toHaveBeenCalled();
+		await flushAsyncWork();
+		expect(session.threads.length).toBe(3);
 
 		const alphaThread = screen.getByRole("button", { name: /Alpha Preview A/ });
 		await userEvent.hover(alphaThread);
 		await userEvent.click(screen.getByRole("button", { name: "Delete Alpha" }));
-		expect(session.deleteThread).toHaveBeenCalledWith("thread-a");
+		await flushAsyncWork();
+		expect(session.threads.some((thread) => thread.id === "thread-a")).toBe(false);
 	});
 });

@@ -8,9 +8,9 @@
 	import DataTableFilterPopover from "./DataTableFilterPopover.svelte";
 	import DataTableSortMenu from "./DataTableSortMenu.svelte";
 	import type { DataTableState } from "./use-data-table-state.svelte.js";
-	import { createDataTableId } from "./data-table-id.js";
 
 	type Props = {
+		instanceId: string;
 		table: DataTableInstance<TData>;
 		search?: DataTableSearch;
 		filters?: DataTableFilter[];
@@ -21,6 +21,7 @@
 	};
 
 	let {
+		instanceId,
 		table,
 		search,
 		filters = [],
@@ -30,7 +31,7 @@
 		onFilterChange
 	}: Props = $props();
 
-	const searchInputId = createDataTableId("data-table-search");
+	const searchInputId = $derived(`${instanceId}-search`);
 
 	const showToolbar = $derived(
 		Boolean(
@@ -76,7 +77,7 @@
 		{/if}
 
 		{#if filters.length > 0}
-			<DataTableFilterPopover {filters} {tableState} {onFilterChange} />
+			<DataTableFilterPopover {instanceId} {filters} {tableState} {onFilterChange} />
 		{/if}
 
 		{#if showSort}

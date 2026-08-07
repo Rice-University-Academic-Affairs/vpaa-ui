@@ -8,19 +8,20 @@
 	import type { DataTableState } from "./use-data-table-state.svelte.js";
 
 	type Props = {
+		instanceId: string;
 		filters: DataTableFilter[];
 		tableState: DataTableState<TData>;
 		onFilterChange?: () => void;
 	};
 
-	let { filters, tableState, onFilterChange }: Props = $props();
+	let { instanceId, filters, tableState, onFilterChange }: Props = $props();
 </script>
 
 {#snippet filterSection(filter: DataTableFilter, sticky = false)}
 	<p class={cn("label mb-2", sticky && "bg-popover sticky top-0 z-10 pb-2")}>{filter.label}</p>
 	<div class="flex flex-col gap-2">
 		{#each filter.options as option (option.value)}
-			{@const inputId = `data-table-filter-${filter.column}-${option.value}`}
+			{@const inputId = `${instanceId}-filter-${filter.column}-${option.value}`}
 			<div class="flex items-center gap-2">
 				<Checkbox
 					id={inputId}

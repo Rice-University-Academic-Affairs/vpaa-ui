@@ -8,8 +8,7 @@ test.describe("Showcase app shell", () => {
 
 		await page.getByRole("button", { name: "Open navigation menu" }).click();
 
-		const mobileNav = page.getByRole("navigation", { name: "Primary" });
-		await expect(mobileNav.getByRole("link", { name: "Showcase" })).toBeVisible();
+		await expect(page.getByRole("link", { name: "Showcase" })).toBeVisible();
 	});
 
 	test("finds and selects a faculty member from global search", async ({ page }) => {

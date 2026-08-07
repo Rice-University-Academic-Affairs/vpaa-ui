@@ -181,4 +181,18 @@ describe("DataTable", () => {
 		expect(inputs).toHaveLength(2);
 		expect(inputs[0]?.id).not.toBe(inputs[1]?.id);
 	});
+
+	it("uses unique filter checkbox ids when multiple tables render", async () => {
+		const view = render(DualTableHarness);
+		const filterButtons = within(view.container).getAllByRole("button", { name: "Filter" });
+
+		await userEvent.click(filterButtons[0]!);
+		const firstId = (await screen.findByLabelText("Tenured")).id;
+		await userEvent.keyboard("{Escape}");
+
+		await userEvent.click(filterButtons[1]!);
+		const secondId = (await screen.findByLabelText("Tenured")).id;
+
+		expect(firstId).not.toBe(secondId);
+	});
 });

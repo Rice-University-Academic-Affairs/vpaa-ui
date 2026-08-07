@@ -1,6 +1,7 @@
 import { EventType, type StreamChunk } from "@tanstack/ai";
 import { describe, expect, it } from "vitest";
 import { createTestChatStream } from "../test-utils/test-chat-stream.js";
+import { createMockChatStream } from "../../../routes/api/chat/mock-stream.js";
 
 async function collectChunks(generator: AsyncGenerator<StreamChunk>) {
 	const chunks: StreamChunk[] = [];
@@ -11,22 +12,30 @@ async function collectChunks(generator: AsyncGenerator<StreamChunk>) {
 }
 
 describe("createTestChatStream", () => {
-	it("echoes user text by default", async () => {
-		const chunks = await collectChunks(
-			createTestChatStream({
-				threadId: "thread-1",
-				runId: "run-1",
-				tools: [],
-				messages: [{ id: "m1", role: "user", content: "Hello" }]
-			})
-		);
+	it("delegates default replies to the production mock stream", async () => {
+		const params = {
+			threadId: "thread-1",
+			runId: "run-1",
+			tools: [],
+			messages: [{ id: "m1", role: "user", content: "Hello" }]
+		};
 
-		expect(
-			chunks
-				.filter((chunk) => chunk.type === EventType.TEXT_MESSAGE_CONTENT)
-				.map((chunk) => ("delta" in chunk ? chunk.delta : ""))
-				.join("")
-		).toBe("Echo: Hello");
+		const prodText = (
+			await collectChunks(createMockChatStream(params))
+		)
+			.filter((chunk) => chunk.type === EventType.TEXT_MESSAGE_CONTENT)
+			.map((chunk) => ("delta" in chunk ? chunk.delta : ""))
+			.join("");
+
+		const testText = (
+			await collectChunks(createTestChatStream(params))
+		)
+			.filter((chunk) => chunk.type === EventType.TEXT_MESSAGE_CONTENT)
+			.map((chunk) => ("delta" in chunk ? chunk.delta : ""))
+			.join("");
+
+		expect(testText).toBe(prodText);
+		expect(testText).toContain("Hello");
 	});
 
 	it("requests set_flag client tool execution", async () => {
