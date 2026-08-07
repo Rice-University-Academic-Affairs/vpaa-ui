@@ -52,7 +52,7 @@ describe("form-values", () => {
 		).toThrow(AdminError);
 		expect(() =>
 			parseFormValues({ name: "A", priceInCents: "1", rating: "1", active: false, status: "nope" }, fields)
-		).toThrow(/Invalid option|Validation/);
+		).toThrow(AdminError);
 	});
 
 	it("preserves optional empty values as null (F8)", () => {

@@ -13,7 +13,10 @@
 
 	const navigation: AppNavGroup[] = [
 		{
-			items: [{ label: "Showcase", href: "/", icon: LayoutDashboard, exact: true }]
+			items: [
+				{ label: "Showcase", href: "/", icon: LayoutDashboard, exact: true },
+				{ label: "Admin", href: "/admin" }
+			]
 		}
 	];
 

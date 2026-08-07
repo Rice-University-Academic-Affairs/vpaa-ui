@@ -46,6 +46,7 @@ export class MemoryAdminData implements AdminData {
 
 	reset(seed?: Record<string, AdminRecord[]>): void {
 		for (const bucket of this.store.values()) bucket.clear();
+		this.forbidden.clear();
 		if (seed) {
 			for (const [resource, records] of Object.entries(seed)) {
 				const bucket = this.ensure(resource);
@@ -54,6 +55,11 @@ export class MemoryAdminData implements AdminData {
 				}
 			}
 		}
+	}
+
+	setForbidden(resources: string[]): void {
+		this.forbidden.clear();
+		for (const name of resources) this.forbidden.add(name);
 	}
 
 	async list(resource: string, request: ListRequest = {}): Promise<ListResult> {

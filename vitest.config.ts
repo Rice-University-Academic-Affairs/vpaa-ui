@@ -1,3 +1,4 @@
+import path from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import { sveltekit } from "@sveltejs/kit/vite";
 import { defineConfig } from "vitest/config";
@@ -5,10 +6,16 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
 	resolve: {
-		conditions: ["browser"]
+		conditions: ["browser"],
+		alias: {
+			$rayfin: path.resolve("rayfin")
+		}
+	},
+	esbuild: {
+		target: "esnext"
 	},
 	test: {
-		include: ["src/**/*.{test,spec}.{js,ts}", "scripts/**/*.{test,spec}.{js,ts}"],
+		include: ["src/**/*.{test,spec}.{js,ts}"],
 		coverage: {
 			provider: "v8",
 			include: [

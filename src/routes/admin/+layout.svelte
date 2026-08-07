@@ -1,73 +1,78 @@
-<script module lang="ts">
-	import { MemoryAdminData } from "$lib/admin/memory-admin-data.js";
-	import { MemoryAdminMembership } from "$lib/admin/membership.js";
-	import { adminResources } from "$lib/admin/generated/resources.js";
-	import { resolveOwnerAdminEmail } from "$lib/admin/owner-config.js";
-	import { createProductSeed } from "$lib/admin/test/identities.js";
-
-	export const isAdminTestMode =
-		import.meta.env.DEV || import.meta.env.PUBLIC_ADMIN_TEST_MODE === "true";
-
-	export const testData = new MemoryAdminData({
-		resources: adminResources,
-		seed: { Product: createProductSeed(30) }
-	});
-
-	export const testMembership = new MemoryAdminMembership({
-		ownerEmail: resolveOwnerAdminEmail()
-	});
-
-	export function resetTestData() {
-		testData.reset({ Product: createProductSeed(30) });
-		testMembership.reset();
-	}
-</script>
-
 <script lang="ts">
 	import type { Snippet } from "svelte";
-	import { setAdminContext } from "$lib/admin/context.js";
+	import { onMount } from "svelte";
+	import { setAdminContext, type AdminContext } from "$lib/admin/context.js";
 	import { resolveAdminAccess } from "$lib/admin/access.js";
 	import { adminResources as resources } from "$lib/admin/generated/resources.js";
-	import { TEST_OWNER } from "$lib/admin/test/identities.js";
-	import type { AdminIdentity } from "$lib/admin/types.js";
+	import type { AdminData, AdminIdentity, AdminMembershipService } from "$lib/admin/types.js";
 	import AdminErrorView from "$lib/admin/components/AdminError.svelte";
 	import { PageContainer } from "$lib/components/page/index.js";
 	import { Button } from "$lib/components/ui/button/index.js";
 
 	let { children }: { children: Snippet } = $props();
 
-	let adminCtx = $state({
-		resources,
-		data: testData,
-		membership: testMembership,
-		identity: (isAdminTestMode ? TEST_OWNER : null) as AdminIdentity | null,
-		mode: "memory" as const
+	const isAdminTestMode =
+		import.meta.env.DEV || import.meta.env.PUBLIC_ADMIN_TEST_MODE === "true";
+
+	let ready = $state(!isAdminTestMode);
+	let adminCtx = $state<AdminContext | null>(null);
+	let testOwner = $state<AdminIdentity | null>(null);
+
+	onMount(() => {
+		if (!isAdminTestMode) return;
+		void (async () => {
+			const [{ MemoryAdminData }, { MemoryAdminMembership }, { resolveOwnerAdminEmail }, identities] =
+				await Promise.all([
+					import("$lib/admin/memory-admin-data.js"),
+					import("$lib/admin/membership.js"),
+					import("$lib/admin/owner-config.js"),
+					import("$lib/admin/test/identities.js")
+				]);
+
+			const data = new MemoryAdminData({
+				resources,
+				seed: { Product: identities.createProductSeed(30) }
+			});
+			const membership = new MemoryAdminMembership({
+				ownerEmail: resolveOwnerAdminEmail()
+			});
+
+			function resetData() {
+				data.reset({ Product: identities.createProductSeed(30) });
+				membership.reset();
+			}
+
+			const ctx: AdminContext = {
+				resources,
+				data: data as AdminData,
+				membership: membership as AdminMembershipService,
+				identity: identities.TEST_OWNER,
+				mode: "memory"
+			};
+			adminCtx = ctx;
+			testOwner = identities.TEST_OWNER;
+			setAdminContext(ctx);
+
+			window.__ADMIN_TEST__ = {
+				setIdentity: (next) => {
+					if (adminCtx) adminCtx.identity = next;
+				},
+				resetData,
+				setForbidden: (names: string[]) => {
+					data.setForbidden(names);
+				},
+				membership,
+				data,
+				identities
+			};
+			ready = true;
+		})();
 	});
 
-	if (isAdminTestMode) {
-		setAdminContext(adminCtx);
-	}
-
-	if (typeof window !== "undefined" && isAdminTestMode) {
-		window.__ADMIN_TEST__ = {
-			setIdentity: (next) => {
-				adminCtx.identity = next;
-			},
-			resetData: () => {
-				resetTestData();
-			},
-			membership: testMembership,
-			data: testData
-		};
-	}
-
 	const accessPromise = $derived(
-		isAdminTestMode
-			? resolveAdminAccess(adminCtx.identity, testMembership)
-			: Promise.resolve({
-					status: "unauthenticated" as const,
-					identity: null
-				})
+		adminCtx
+			? resolveAdminAccess(adminCtx.identity, adminCtx.membership)
+			: Promise.resolve({ status: "unauthenticated" as const, identity: null })
 	);
 </script>
 
@@ -78,6 +83,10 @@
 			message="Admin requires an authenticated Rayfin session."
 			kind="unauthorized"
 		/>
+	</PageContainer>
+{:else if !ready || !adminCtx}
+	<PageContainer>
+		<p class="caption">Loading admin…</p>
 	</PageContainer>
 {:else}
 	{#key adminCtx.identity?.userId ?? "anon"}
@@ -94,13 +103,15 @@
 							message="Sign in with Rayfin to access Admin."
 							kind="unauthorized"
 						/>
-						<Button
-							onclick={() => {
-								adminCtx.identity = TEST_OWNER;
-							}}
-						>
-							Sign in
-						</Button>
+						{#if testOwner}
+							<Button
+								onclick={() => {
+									if (adminCtx && testOwner) adminCtx.identity = testOwner;
+								}}
+							>
+								Sign in
+							</Button>
+						{/if}
 					</div>
 				</PageContainer>
 			{:else if access.status === "forbidden"}

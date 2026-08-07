@@ -3,8 +3,15 @@ import type { AdminData, AdminIdentity, AdminMembershipService } from "../types.
 export type AdminTestHarness = {
 	setIdentity: (identity: AdminIdentity | null) => void;
 	resetData: () => void;
+	setForbidden: (resourceNames: string[]) => void;
 	membership: AdminMembershipService;
 	data: AdminData;
+	identities: {
+		TEST_OWNER: AdminIdentity;
+		TEST_ADMIN: AdminIdentity;
+		TEST_INVITEE: AdminIdentity;
+		TEST_NON_ADMIN: AdminIdentity;
+	};
 };
 
 declare global {
