@@ -1,8 +1,18 @@
 # Admin + Rayfin architecture fix plan
 
-Research basis: current `vpaa-ui` admin code, `docs/admin-auth-plan.md`, Rayfin CLI skills (`rayfin`, `rayfin-functions`), and Rayfin guide topics (permissions, known limitations, GraphQL client).
+Research basis: current `vpaa-ui` admin code, `docs/admin-auth-plan.md`, Rayfin CLI skill (`rayfin` — entities, GraphQL client, Fabric SSO), and Rayfin guide topics (permissions, GraphQL data access).
 
-This repo is a **Svelte component library + showcase**. The admin stack must be honest about what is library/platform vs demo data, and production paths must not silently use in-memory stand-ins for Rayfin SQL.
+**Constraint (updated):** Fabric **server UDFs are not available yet**. Do **not** plan membership (or cascade) on `rayfin/functions` / `client.functions.*`. Use the supported Rayfin loop instead:
+
+```text
+Frontend code
+  → RayfinClient (session auth)
+  → GraphQL data API (client.data.<Entity>)
+  → SQL tables from @entity models
+  → handle results in the frontend
+```
+
+This repo is a **Svelte component library + showcase**. The admin stack must be honest about platform vs demo data, and production paths must not silently use in-memory stand-ins for Rayfin SQL.
 
 ---
 
@@ -12,31 +22,39 @@ Several places look Rayfin-backed but are not:
 
 | Symptom | Intent | Reality today |
 | --- | --- | --- |
-| Admin allowlist | `AdminUser` SQL table via Rayfin | `MemoryAdminMembership` singleton in the browser |
-| “Trusted membership function” | Fabric UDF over `AdminUser` | Pure helper under `rayfin/functions/src/` with no `function_app.ts` / client RPC |
-| Admin gate | Server/data authority | Svelte layout check only; entities mostly `@authenticated("*")` |
+| Admin allowlist | `AdminUser` rows in the same Rayfin SQL ORM as user models | `MemoryAdminMembership` singleton in the browser |
+| “Trusted membership helper” | Suggested a backend UDF | Pure TS under `rayfin/functions/src/` — not a real Rayfin path, and UDFs aren’t supported yet |
+| Admin gate | Membership check against SQL allowlist via GraphQL | Svelte layout + memory store; entities mostly `@authenticated("*")` |
 | Local `npm run dev` | Can exercise Rayfin admin | `isAdminTestMode` is true whenever `DEV` is true |
-| Cascade delete | Integrity aligned with DB | Client-side multi-delete from generated metadata only |
+| Cascade delete | Admin UX over the same GraphQL/SQL data | Client-side multi-delete (fine as the Rayfin loop) but easy to confuse with DB constraints |
 | Demo entities | Clearly showcase | Mixed flat under `rayfin/data/` next to `AdminUser` |
 
-The clearest footgun: **who is an admin** must live in the same Rayfin SQL database as everything else. Today it does not.
+The clearest footgun: **who is an admin** must live in the same Rayfin SQL database / ORM the consumer uses for their models. Today it does not.
 
 ---
 
-## Target mental model
+## Target mental model (no UDFs)
 
 ```text
-rayfin/data/core/          → platform entities (AdminUser) — real product contract
-rayfin/data/showcase/      → demo-only entities (Product, Faculty*, …) — never mistaken for VPAA domain
-rayfin/data/schema.ts      → registers core + showcase for THIS showcase app
+rayfin/data/core/AdminUser.ts     → platform allowlist entity → SQL table
+rayfin/data/showcase/*            → demo-only entities for this showcase app
+rayfin/data/schema.ts             → registers core + showcase
 
-src/lib/admin/*            → reusable admin UI + adapters (library)
-Memory* / test harness     → explicit test/showcase mode only
-RayfinAdminData            → entity CRUD via client.data
-Rayfin membership UDF      → AdminUser allowlist check/add/remove (trusted)
+Frontend membership service
+  → getRayfinClient().data.AdminUser.select|create|delete|…
+  → same GraphQL/SQL path as RayfinAdminData for Products/etc.
+
+MemoryAdminMembership             → test harness / PUBLIC_ADMIN_TEST_MODE only
 ```
 
-Consumers of `vpaa-ui` bring their own Rayfin schema. Showcase entities stay in-repo for demos/E2E and must be labeled by path.
+Same loop as the rest of Rayfin admin CRUD:
+
+1. User defines (or we ship) `@entity` models.
+2. Rayfin materializes SQL.
+3. Frontend calls `client.data.*` with the Fabric session.
+4. UI handles the result.
+
+Consumers add `AdminUser` (or import our core entity) into **their** `schema` alongside their domain models so allowlist and app data share one database.
 
 ---
 
@@ -51,33 +69,33 @@ rayfin/data/
   schema.ts                      # AppSchema + schema export (see Phase 1)
   core/
     AdminUser.ts                 # allowlist entity (platform)
-    README.md                    # "Platform entities used by admin membership"
+    README.md                    # "Platform: admin allowlist table"
   showcase/
-    README.md                    # "Demo-only entities for the vpaa-ui showcase / E2E"
+    README.md                    # "Demo-only for vpaa-ui showcase / E2E — not VPAA domain"
     Product.ts
     ProductCategory.ts
     Faculty.ts
     FacultyAward.ts
     SabbaticalCredit.ts
     ResearchGrant.ts
-    index.ts                     # re-exports showcase entities for generator tests
+    index.ts                     # re-exports for generator tests
 ```
 
 ### Rules
 
-1. **Only `core/AdminUser` is platform.** Everything else under `showcase/` is demo.
-2. Showcase README states: not VPAA production domain; safe to delete/replace in consumer apps; used by Playwright + generator fixtures.
-3. Fix showcase modeling while moving (do not leave known-broken demos):
-   - `FacultyAward.facultyId`: change to `@uuid()` + `@one(() => Faculty)` (Rayfin: FK to `@uuid` PK must be `@uuid`, not `@text`).
-   - `ProductCategory`: either keep under `showcase/` **and** register in schema, or delete if unused. Prefer register — it already demonstrates `@one` / FK omission in the generator.
-4. Update imports: `scripts/generate-admin.ts`, generator tests, bootstrap seeds, E2E copy if needed.
-5. Optional UI cue later: group showcase resources under an “Examples” heading in `/admin` index (not required for Phase 0 correctness).
+1. **Only `core/AdminUser` is platform.** Everything under `showcase/` is demo.
+2. Showcase README: not production VPAA domain; safe to delete/replace in consumer apps; used by Playwright + generator fixtures.
+3. Fix showcase modeling while moving:
+   - `FacultyAward.facultyId` → `@uuid()` + `@one(() => Faculty)` (Rayfin: FK to `@uuid` PK must be `@uuid`, not `@text`).
+   - `ProductCategory`: keep under `showcase/` **and** register in schema (demonstrates `@one` / FK field retention).
+4. Update imports: generator script, generator tests, bootstrap seeds as needed.
+5. Optional later: “Examples” grouping on `/admin` index.
 
 ### Exit criteria
 
-- `rg "from \"./FacultyAward"` etc. resolve under `showcase/`.
+- Showcase entities only import from `rayfin/data/showcase/`.
 - `admin:generate` still emits Product / Faculty / awards / cascade edges.
-- README in `showcase/` and `core/` make the split obvious without reading this plan.
+- `core/` and `showcase/` READMEs make the split obvious.
 
 ---
 
@@ -85,61 +103,67 @@ rayfin/data/
 
 **Goal:** Match Rayfin template conventions and one registry.
 
-1. Export `schema` (Rayfin template name) from `rayfin/data/schema.ts`, composed as `[...coreEntities, ...showcaseEntities]`.
-2. Keep `appEntities` as a deprecated alias → `schema` until call sites migrate (generator, tests).
-3. Type `AppSchema` from core + showcase; type `getRayfinClient()` as `RayfinClient<AppSchema>` when practical.
-4. Document: CLI may still scan all `@entity` files under `rayfin/data/`; **do not leave orphan entity files outside `schema`**.
+1. Export `schema` (Rayfin template name) from `rayfin/data/schema.ts` as `[...coreEntities, ...showcaseEntities]`.
+2. Keep `appEntities` as a deprecated alias → `schema` until call sites migrate.
+3. Type `AppSchema` from core + showcase; prefer `RayfinClient<AppSchema>` on `getRayfinClient()` when practical.
+4. No orphan `@entity` files outside `core` / `showcase` and the registered `schema` list.
 
 ### Exit criteria
 
-- Generator and `rayfin` schema share the same explicit list.
-- No entity file exists that is neither `core` nor `showcase` nor registered.
+- Generator and Rayfin schema share one explicit list.
+- Consumer guidance: include `AdminUser` (core) in their schema next to their models.
 
 ---
 
-## Phase 2 — Admin membership in Rayfin SQL (primary footgun)
+## Phase 2 — Admin membership via Rayfin GraphQL/SQL (primary footgun)
 
-**Goal:** Allowlist rows live in the `AdminUser` table; browser memory is test-only.
+**Goal:** Allowlist rows live in the `AdminUser` table through `client.data.AdminUser`. Browser memory is test-only. **No UDFs.**
 
-### Research notes (Rayfin functions)
+### Approach (the Rayfin loop)
 
-- Real UDFs live in `rayfin/functions/` after `rayfin functions init` (`function_app.ts`, `types.ts`, package/host config).
-- Use `RayfinContext<AppSchema>` + `ctx.getDataClient()` for trusted `AdminUser` access.
-- Frontend invokes via `client.functions.<name>(...)`, not by treating a pure TS helper as a backend.
+Implement `RayfinAdminMembership` that satisfies `AdminMembershipService` by calling the data client, the same way `RayfinAdminData` does for other entities:
+
+| Membership API | Rayfin data call (sketch) |
+| --- | --- |
+| `check({ email })` | Owner email short-circuit **or** `AdminUser` query where email matches |
+| `list(caller)` | Assert caller is admin, then `AdminUser.select([…]).execute()` (+ synthetic owner row in UI) |
+| `add(caller, email)` | Validate + conflict checks, then `AdminUser.create({ email, createdAt, createdBy })` |
+| `remove(caller, id)` | Guard owner/self, then `AdminUser.delete({ id })` |
+
+Keep email-only rules (`normalizeEmail`, configured owner from env). Put shared rule helpers in `src/lib/admin/` (pure functions) so memory and Rayfin implementations stay aligned — **not** under `rayfin/functions/`.
 
 ### Implementation steps
 
-1. **Scaffold** a real functions project (`npx rayfin functions init` if missing pieces).
-2. **Replace** the fake helper with UDFs, e.g.:
-   - `adminCheck({ email })`
-   - `adminListMembers`
-   - `adminAddMember({ email })`
-   - `adminRemoveMember({ id })`
-   Logic mirrors today’s email-only owner/allowlist rules (`normalizeEmail`, configured owner email via secret/env).
-3. **Store adapter** inside the function uses `data.AdminUser` (create/list/delete). Owner remains config (`OWNER_ADMIN_EMAIL` secret), not a row that can be deleted.
-4. **Client:** `RayfinAdminMembership implements AdminMembershipService` calling those UDFs.
-5. **Wire production** root + admin layouts to `RayfinAdminMembership`; delete production use of `getSharedAppMembership()` or make it throw outside test mode.
-6. **Keep** `MemoryAdminMembership` only for `__ADMIN_TEST__` / `PUBLIC_ADMIN_TEST_MODE`.
-7. **Tighten `AdminUser` permissions:** stop world-readable `@authenticated("read")`. Prefer function-only access (no direct client CRUD — already forbidden in `RayfinAdminData`) and/or a narrow `@role` if Rayfin requires entity-level access for the function’s data client.
-8. **Isolation tests:** assert production path uses Rayfin membership (or `client.functions`), **not** the memory singleton. Today’s test that forbids `new MemoryAdminMembership` while allowing `getSharedAppMembership()` locks in the footgun — rewrite it.
+1. **Permissions on `AdminUser`:** authenticated users who can open the app need enough GraphQL access for membership checks/mutations used by the admin UI (e.g. read + create/delete as appropriate). Document that Fabric SSO already gates who can load the app; the allowlist is an **app-admin** layer on top. Avoid leaving the table anonymously writable.
+2. **Add `RayfinAdminMembership`** in `src/lib/admin/` (e.g. `rayfin-admin-membership.ts`) taking `RayfinClient` + owner email.
+3. **Keep forbidding** generic `AdminData` CRUD on `AdminUser` (`RayfinAdminData` / `MemoryAdminData` already do). UI continues to go through `membership.*` only — but membership now hits SQL.
+4. **Wire production** root + admin layouts to `RayfinAdminMembership` instead of `getSharedAppMembership()`.
+5. **Memory path:** `MemoryAdminMembership` only when `PUBLIC_ADMIN_TEST_MODE` (harness). Make `getSharedAppMembership()` test-only or remove from production imports.
+6. **Delete or relocate** the misleading `rayfin/functions/src/admin-membership.ts` “trusted helper” so nobody thinks UDFs are required or already shipped. Prefer pure helpers next to the membership implementations.
+7. **Isolation tests:** production layouts must import Rayfin membership / `client.data` path, not the memory singleton.
+8. **Tests:** unit-test Rayfin membership against a fake `client.data.AdminUser`; keep memory tests for harness; optional `test:rayfin` smoke when a backend exists.
+
+### Honesty about security
+
+Without server UDFs, **authorization is**: Fabric session + Rayfin entity permissions + frontend membership helpers. Anyone who can call GraphQL with a valid session under those permissions can touch `AdminUser`. That matches how Rayfin encourages frontend data access today. When UDFs arrive later, membership *could* move server-side — out of scope for this plan.
 
 ### Exit criteria
 
-- Adding an admin in a Rayfin-backed environment inserts an `AdminUser` row.
-- Reload / second client still sees that admin.
-- Test harness unchanged for Playwright (memory OK when flag set).
-- Unit tests cover UDF logic with a fake store; integration behind `test:rayfin` when backend exists.
+- Adding an admin in Rayfin-backed mode inserts an `AdminUser` row via GraphQL.
+- Reload / second client still sees that admin (SQL persistence).
+- Harness Playwright still uses memory when the test flag is set.
+- No plan or code path depends on `client.functions` / UDFs.
 
 ---
 
 ## Phase 3 — Stop DEV from forcing the harness
 
-**Goal:** Local default can hit Fabric/Rayfin admin; harness is opt-in.
+**Goal:** Local default can hit Rayfin admin; harness is opt-in.
 
-1. Change `isAdminTestMode` to **only** `PUBLIC_ADMIN_TEST_MODE === "true"` (remove `|| env.DEV`).
-2. Playwright / package scripts set the flag explicitly (already true in `playwright.config.ts` — verify).
-3. Document: `npm run dev` without the flag expects Rayfin env (`VITE_RAYFIN_*`, owner email); use `PUBLIC_ADMIN_TEST_MODE=true npm run dev` for harness showcase.
-4. Split `AdminContext.mode` (or replace it):
+1. `isAdminTestMode` → **only** `PUBLIC_ADMIN_TEST_MODE === "true"` (drop `|| env.DEV`).
+2. Confirm Playwright sets the flag.
+3. Document: without the flag, need `VITE_RAYFIN_*` + owner email; with the flag, memory showcase.
+4. Split context backends:
 
 ```ts
 type AdminBackends = {
@@ -148,86 +172,83 @@ type AdminBackends = {
 };
 ```
 
-Only claim `"rayfin"` per concern when that concern is actually Rayfin-backed.
-
 ### Exit criteria
 
-- Production build path and “dev without flag” share the same membership/data wiring shape.
-- Isolation tests updated for the new flag semantics.
+- Dev-without-flag and production builds share Rayfin data + Rayfin membership wiring.
+- Isolation tests match the new flag semantics.
 
 ---
 
-## Phase 4 — Data-plane authority (admin means something)
+## Phase 4 — Data-plane honesty for showcase entities
 
-**Goal:** Hiding the Admin nav is UX, not security.
+**Goal:** Don’t imply demo permissions are a security model.
 
-1. **Showcase entities** under `showcase/`: keep permissive `@authenticated("*")` **only if** documented as demo-insecure; prefer a comment in each file: `// SHOWCASE ONLY: full CRUD for any authenticated user`.
-2. **Platform `AdminUser`:** no client mutations; membership only via UDF (Phase 2).
-3. For library guidance (README / auth plan): consumer apps must not ship `@authenticated("*")` on real domain tables; use `@role` / policies / functions.
-4. Optional follow-up: admin-only mutation UDFs for showcase writes so demos also illustrate the safe pattern (larger change; can trail Phase 2).
+1. Showcase entities: keep `@authenticated("*")` only with an explicit file-level note that this is **showcase-only**.
+2. Platform `AdminUser`: permissions sized for the membership GraphQL calls in Phase 2 (not anonymous; not “hide behind a nonexistent UDF”).
+3. Library/README guidance: consumers should tighten domain entity permissions for real apps; admin allowlist is `AdminUser` in **their** schema via the same ORM.
 
 ### Exit criteria
 
-- Docs + showcase READMEs state clearly that entity `@authenticated("*")` is demo-only.
-- Auth plan decision record updated: membership UDF is required for production consumers.
+- Showcase READMEs + auth plan state the GraphQL/frontend loop clearly.
+- No remaining “wire a membership UDF” language in active plans.
 
 ---
 
 ## Phase 5 — Cascade delete honesty
 
-**Goal:** Don’t pretend client cascade is DB integrity.
+**Goal:** Cascade stays in the Rayfin frontend loop; don’t claim DB `ON DELETE`.
 
-1. Short term (after Phase 0 modeling fixes): keep `cascade-delete.ts` for admin UX; document it as **application-level** delete planning for the admin UI.
-2. Medium term: add a trusted `adminInspectRemove` / `adminRemove` UDF that performs the same policy in one server transaction (or rely on SQL FK `ON DELETE` once Rayfin supports / documents the desired behavior — verify against known limitations before assuming DB cascade).
-3. Until then: non-admin API deletes can still orphan rows if entity permissions allow it (Phase 4).
+1. Keep `cascade-delete.ts` + `RayfinAdminData.remove` as **application-level** planning that issues multiple `client.data` deletes (same loop as everything else).
+2. Do **not** plan a cascade UDF.
+3. After Phase 0, showcase Faculty ↔ awards/credits use real `@one`/`@many` so generated edges match the demo.
+4. Optional later (still no UDF): document concurrency limits of multi-step client deletes.
 
 ### Exit criteria
 
-- Plan/docs no longer imply cascade equals SQL constraints.
-- Showcase Faculty ↔ awards/credits relationships are real `@one`/`@many` so generated admin edges match the demo story.
+- Docs call cascade “admin UI + GraphQL multi-delete,” not SQL constraints.
+- Showcase relationships are real Rayfin relations.
 
 ---
 
 ## Phase 6 — Doc reconciliation
 
-Update in one pass after Phases 0–3 land:
+After Phases 0–3:
 
-- `docs/admin-auth-plan.md` — membership UDF + SQL `AdminUser` status; remove “memory until RPC” as the production answer.
-- `docs/admin-review-plan.md` — drop stale “Rayfin wiring deferred” / bind-on-login notes.
-- `docs/admin-test-plan.md` — harness flag-only; `test:rayfin` covers membership SQL.
-- `docs/admin-ux-user-stories.md` — label Product / Faculty Awards as showcase examples.
-- Root `README.md` — short “Admin showcase” section pointing at `rayfin/data/showcase/`.
+- `docs/admin-auth-plan.md` — membership via `client.data.AdminUser`; retire memory-as-production and UDF language.
+- `docs/admin-review-plan.md` — drop stale deferred/UDF notes.
+- `docs/admin-test-plan.md` — flag-only harness; Rayfin membership contract tests.
+- `docs/admin-ux-user-stories.md` — label Product / Faculty Awards as showcase.
+- Root `README.md` — point at `rayfin/data/showcase/` vs `core/`.
 
 ---
 
 ## Suggested implementation order
 
 ```text
-Phase 0  filesystem split + FacultyAward FK fix + ProductCategory decision
+Phase 0  filesystem split + FacultyAward FK fix + ProductCategory in schema
 Phase 1  schema export + typed client
-Phase 2  Rayfin membership UDF + RayfinAdminMembership + isolation test rewrite
+Phase 2  RayfinAdminMembership via client.data.AdminUser + remove fake functions helper
 Phase 3  DEV no longer implies harness + backend flags
-Phase 4  permission honesty / consumer guidance
-Phase 5  cascade server/DB follow-up (can overlap docs)
-Phase 6  docs sync
+Phase 4  permission / consumer guidance (no UDFs)
+Phase 5  cascade docs + relationship honesty
+Phase 6  doc sync
 ```
-
-Do **not** expand showcase demos while Phase 2 is open — fix the allowlist source of truth first after the filesystem split.
 
 ---
 
-## Explicit non-goals (this plan)
+## Explicit non-goals
 
+- Server UDFs / `rayfin functions` / `client.functions` (unsupported for us right now).
 - Replacing Fabric invite UX.
 - Entra-group → admin mapping.
-- Making cascade a general ORM feature outside admin.
-- Moving the whole library off Rayfin for consumers who don’t use Fabric.
+- Claiming client cascade equals SQL `ON DELETE`.
 
 ---
 
 ## Success definition
 
-1. An operator can point at `rayfin/data/showcase/` and say “demo only,” and at `rayfin/data/core/AdminUser.ts` and say “real allowlist table.”
-2. In Rayfin-backed mode, admin add/remove persists in SQL and survives reload.
-3. Memory membership cannot be reached from production layout code without the explicit test flag.
-4. Docs, isolation tests, and `AdminContext` backends agree with that reality.
+1. `rayfin/data/showcase/` is obviously demo-only; `rayfin/data/core/AdminUser.ts` is the real allowlist table in the same ORM/SQL as consumer models.
+2. Rayfin-backed mode: admin add/remove persists through GraphQL into SQL and survives reload.
+3. Membership and entity CRUD both use `RayfinClient` → `client.data.*` — the core Rayfin loop.
+4. Memory membership is unreachable from production layout code without the explicit test flag.
+5. No dependency on UDFs in code or active docs.
