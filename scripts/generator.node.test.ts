@@ -4,10 +4,10 @@ import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { entity, many, uuid } from "@microsoft/rayfin-core";
-import { AdminUser } from "../rayfin/data/AdminUser.js";
-import { FacultyAward } from "../rayfin/data/FacultyAward.js";
-import { Product } from "../rayfin/data/Product.js";
-import { ProductCategory } from "../rayfin/data/ProductCategory.js";
+import { AdminUser } from "../rayfin/data/core/AdminUser.js";
+import { FacultyAward } from "../rayfin/data/showcase/FacultyAward.js";
+import { Product } from "../rayfin/data/showcase/Product.js";
+import { ProductCategory } from "../rayfin/data/showcase/ProductCategory.js";
 import {
 	extractResources,
 	formatResourcesModule,
@@ -100,11 +100,19 @@ describe("admin generator", () => {
 	});
 
 	it("emits cascade and restrict child edges from @many/@one (G10)", async () => {
-		const { Faculty } = await import("../rayfin/data/Faculty.js");
-		const { SabbaticalCredit } = await import("../rayfin/data/SabbaticalCredit.js");
-		const { ResearchGrant } = await import("../rayfin/data/ResearchGrant.js");
-		const resources = extractResources({ entities: [Faculty, SabbaticalCredit, ResearchGrant] });
+		const { Faculty } = await import("../rayfin/data/showcase/Faculty.js");
+		const { SabbaticalCredit } = await import("../rayfin/data/showcase/SabbaticalCredit.js");
+		const { ResearchGrant } = await import("../rayfin/data/showcase/ResearchGrant.js");
+		const { FacultyAward } = await import("../rayfin/data/showcase/FacultyAward.js");
+		const resources = extractResources({
+			entities: [Faculty, SabbaticalCredit, ResearchGrant, FacultyAward]
+		});
 		assert.deepEqual(resources.Faculty!.children, [
+			{
+				childResource: "FacultyAward",
+				foreignKey: "facultyId",
+				policy: "restrict"
+			},
 			{
 				childResource: "ResearchGrant",
 				foreignKey: "facultyId",

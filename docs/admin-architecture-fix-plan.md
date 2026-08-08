@@ -5,12 +5,14 @@ Research basis: current `vpaa-ui` admin code, `docs/admin-auth-plan.md`, Rayfin 
 **Constraint (updated):** Fabric **server UDFs are not available yet**. Do **not** plan membership (or cascade) on `rayfin/functions` / `client.functions.*`. Use the supported Rayfin loop instead:
 
 ```text
-Frontend code
-  → RayfinClient (session auth)
-  → GraphQL data API (client.data.<Entity>)
-  → SQL tables from @entity models
+Frontend membership / admin code
+  → RayfinClient (Fabric session)
+  → client.data.<Entity> (Rayfin ORM data API)
+  → SQL tables generated from @entity models
   → handle results in the frontend
 ```
+
+(Internally that data API is GraphQL-flavored; the contract for app code is the typed `client.data` ORM client, not hand-written SQL or GraphQL.)
 
 This repo is a **Svelte component library + showcase**. The admin stack must be honest about platform vs demo data, and production paths must not silently use in-memory stand-ins for Rayfin SQL.
 
@@ -252,3 +254,14 @@ Phase 6  doc sync
 3. Membership and entity CRUD both use `RayfinClient` → `client.data.*` — the core Rayfin loop.
 4. Memory membership is unreachable from production layout code without the explicit test flag.
 5. No dependency on UDFs in code or active docs.
+
+## Implementation status
+
+Phases 0–6 landed on branch `cursor/svelte-admin-rayfin-5de0`:
+
+- Filesystem split + FacultyAward `@uuid`/`@one` + ProductCategory in schema
+- `schema` export + typed `RayfinClient<AppSchema>`
+- `RayfinAdminMembership` via `client.data.AdminUser`; `rayfin/functions` removed
+- Flag-only harness (`PUBLIC_ADMIN_TEST_MODE`); production layouts use Rayfin data + membership
+- Cascade remains application-level multi-delete over the same data client
+- Docs updated to describe the Rayfin frontend → ORM loop (not UDFs)

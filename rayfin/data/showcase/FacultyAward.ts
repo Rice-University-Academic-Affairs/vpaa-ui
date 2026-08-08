@@ -3,10 +3,12 @@ import {
 	boolean,
 	date,
 	entity,
+	one,
 	set,
 	text,
 	uuid
 } from "@microsoft/rayfin-core";
+import { Faculty } from "./Faculty.js";
 
 @entity()
 @authenticated("*")
@@ -17,8 +19,11 @@ export class FacultyAward {
 	@text({ max: 200 })
 	title!: string;
 
-	@text({ max: 100 })
+	@uuid()
 	facultyId!: string;
+
+	@one(() => Faculty)
+	faculty!: Faculty;
 
 	@set("nominated", "awarded", "declined")
 	status!: "nominated" | "awarded" | "declined";

@@ -3,6 +3,7 @@ import { resolveOwnerAdminEmail } from "./owner-config.js";
 
 let shared: MemoryAdminMembership | null = null;
 
+/** Test/showcase harness only. Production uses RayfinAdminMembership + client.data.AdminUser. */
 export function getSharedAppMembership(options?: {
 	ownerEmail?: string;
 }): MemoryAdminMembership {

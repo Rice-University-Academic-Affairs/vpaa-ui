@@ -1,4 +1,4 @@
-import { authenticated, entity, text, uuid, one } from "@microsoft/rayfin-core";
+import { authenticated, entity, one, text, uuid } from "@microsoft/rayfin-core";
 import { Product } from "./Product.js";
 
 @entity()

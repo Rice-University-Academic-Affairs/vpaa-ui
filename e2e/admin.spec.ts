@@ -250,6 +250,7 @@ test.describe("Admin application E2E", () => {
 			"Faculties",
 			"Faculty Awards",
 			"Products",
+			"Product Categories",
 			"Research Grants",
 			"Sabbatical Credits"
 		]);
@@ -494,6 +495,60 @@ test.describe("Admin application E2E", () => {
 		await expect(page.getByRole("dialog").getByRole("button", { name: "Delete" })).toHaveCount(0);
 		await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
 		await expect(page.locator("#field-name")).toHaveValue("Grant Holder");
+	});
+
+	test("CD-E2E restrict FacultyAward blocks parent delete", async ({ page }) => {
+		await page.getByRole("link", { name: "Faculties", exact: true }).click();
+		await page.getByRole("link", { name: "New" }).click();
+		await page.locator("#field-name").fill("Award Holder");
+		await page.getByRole("button", { name: "Create" }).click();
+		await expect(page).toHaveURL(/\/admin\/faculties\/(?!new$)[^/]+$/);
+		const facultyUrl = page.url();
+		const facultyId = facultyUrl.split("/").pop()!;
+
+		await page.goto("/admin/faculty-awards/new");
+		await page.locator("#field-title").fill("Teaching Prize");
+		await page.locator("#field-facultyId").fill(facultyId);
+		await page.locator("#field-status").click();
+		await page.getByRole("option", { name: "nominated" }).click();
+		await page.getByRole("checkbox", { name: "Published" }).click();
+		await page.getByRole("button", { name: "Create" }).click();
+		await expect(page).toHaveURL(/\/admin\/faculty-awards\/(?!new$)[^/]+$/);
+
+		await page.goto(facultyUrl);
+		await expect(page.locator("#field-name")).toHaveValue("Award Holder");
+		await page.getByRole("button", { name: "Delete", exact: true }).click();
+		await expect(page.getByRole("dialog")).toContainText("Cannot delete");
+		await expect(page.getByRole("dialog")).toContainText("Faculty Awards");
+		await expect(page.getByRole("dialog").getByRole("button", { name: "Delete" })).toHaveCount(0);
+		await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+		await expect(page.locator("#field-name")).toHaveValue("Award Holder");
+	});
+
+	test("CD-E2E restrict ProductCategory blocks product delete", async ({ page }) => {
+		await page.getByRole("link", { name: "Products", exact: true }).click();
+		await page.getByRole("link", { name: "New" }).click();
+		await page.locator("#field-name").fill("Categorized Widget");
+		await page.locator("#field-priceInCents").fill("1500");
+		await page.getByRole("button", { name: "Create" }).click();
+		await expect(page).toHaveURL(/\/admin\/products\/(?!new$)[^/]+$/);
+		const productUrl = page.url();
+		const productId = productUrl.split("/").pop()!;
+
+		await page.goto("/admin/product-categories/new");
+		await page.locator("#field-name").fill("Widgets");
+		await page.locator("#field-productId").fill(productId);
+		await page.getByRole("button", { name: "Create" }).click();
+		await expect(page).toHaveURL(/\/admin\/product-categories\/(?!new$)[^/]+$/);
+
+		await page.goto(productUrl);
+		await expect(page.locator("#field-name")).toHaveValue("Categorized Widget");
+		await page.getByRole("button", { name: "Delete", exact: true }).click();
+		await expect(page.getByRole("dialog")).toContainText("Cannot delete");
+		await expect(page.getByRole("dialog")).toContainText("Product Categories");
+		await expect(page.getByRole("dialog").getByRole("button", { name: "Delete" })).toHaveCount(0);
+		await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+		await expect(page.locator("#field-name")).toHaveValue("Categorized Widget");
 	});
 
 	test("CD-E2E cancel cascade warning keeps parent and children", async ({ page }) => {

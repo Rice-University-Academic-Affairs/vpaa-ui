@@ -66,7 +66,9 @@ Shared suite factory `defineAdminDataContract(factory)` run against `MemoryAdmin
 
 ## D. Membership unit tests (`src/lib/admin/access.test.ts`, `membership.test.ts`)
 
-Use deterministic test identities + in-memory membership service (excluded from production build).
+Use deterministic test identities + in-memory membership service (excluded from production build). `RayfinAdminMembership` is covered with a fake `client.data.AdminUser` (same rules; no UDFs).
+
+Harness mode is **flag-only**: `PUBLIC_ADMIN_TEST_MODE=true` (Playwright / `npm run dev`). `DEV` alone does not enable the harness.
 
 | ID | Requirement | Assertion |
 | --- | --- | --- |

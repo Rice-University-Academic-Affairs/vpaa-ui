@@ -2,6 +2,8 @@
 
 Review lens: walk the admin experience as concrete actor stories, then prove each story with Playwright E2E (reuse existing tests where they already cover the story).
 
+Showcase entities (Products, Faculty Awards, Product Categories, etc.) are demo-only under `rayfin/data/showcase/` — not production VPAA domain.
+
 ## Actors
 
 | Actor | How they appear in the showcase harness |

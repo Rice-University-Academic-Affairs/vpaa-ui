@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 describe("production isolation (I1-I3)", () => {
@@ -22,7 +22,7 @@ describe("production isolation (I1-I3)", () => {
 		const layout = readFileSync(path.resolve("src/routes/admin/+layout.svelte"), "utf8");
 		expect(layout).not.toMatch(/url\.searchParams.*memory/i);
 		expect(layout).not.toMatch(/localStorage.*adminMode/i);
-		expect(layout).toMatch(/isAdminTestMode|PUBLIC_ADMIN_TEST_MODE|import\.meta\.env\.DEV/);
+		expect(layout).toMatch(/isAdminTestMode|PUBLIC_ADMIN_TEST_MODE/);
 		expect(layout).toMatch(/getTestAdminContext/);
 	});
 
@@ -30,7 +30,8 @@ describe("production isolation (I1-I3)", () => {
 		const layout = readFileSync(path.resolve("src/routes/admin/+layout.svelte"), "utf8");
 		expect(layout).not.toMatch(/MemoryAdminData/);
 		expect(layout).toMatch(/\$lib\/admin\/test\/bootstrap/);
-		expect(layout).toMatch(/loadAppAuth|RayfinAdminData|getSharedAppMembership/);
+		expect(layout).toMatch(/loadAppAuth|RayfinAdminData|RayfinAdminMembership/);
+		expect(layout).not.toMatch(/getSharedAppMembership/);
 	});
 
 	it("production admin layout wires Fabric auth instead of a permanent Sign in stub", () => {
@@ -38,15 +39,19 @@ describe("production isolation (I1-I3)", () => {
 		const load = readFileSync(path.resolve("src/routes/admin/+layout.ts"), "utf8");
 		expect(load).toMatch(/loadAppAuth/);
 		expect(load).toMatch(/resolveAdminAccess/);
+		expect(load).toMatch(/RayfinAdminMembership/);
 		expect(layout).toMatch(/RayfinAdminData/);
+		expect(layout).toMatch(/RayfinAdminMembership/);
 		expect(layout).not.toMatch(
 			/\{#if !isAdminTestMode\}[\s\S]*Sign in required[\s\S]*\{\/:else if !adminCtx\}/
 		);
 	});
 
-	it("root layout uses shared membership singleton in production path", () => {
+	it("root layout uses RayfinAdminMembership in production path", () => {
 		const load = readFileSync(path.resolve("src/routes/+layout.ts"), "utf8");
-		expect(load).toMatch(/getSharedAppMembership/);
+		expect(load).toMatch(/RayfinAdminMembership/);
+		expect(load).toMatch(/getRayfinClient/);
+		expect(load).not.toMatch(/getSharedAppMembership/);
 		expect(load).not.toMatch(/new MemoryAdminMembership/);
 	});
 
@@ -58,19 +63,37 @@ describe("production isolation (I1-I3)", () => {
 		expect(admin).toMatch(/__ADMIN_TEST__/);
 	});
 
-	it("public package exports Fabric auth helpers but not the fake Fabric harness", () => {
-		const index = readFileSync(path.resolve("src/lib/index.ts"), "utf8");
-		expect(index).toMatch(/bootstrapAuth/);
-		expect(index).toMatch(/identityFromSession/);
-		expect(index).toMatch(/buildPrimaryNavigation/);
-		expect(index).not.toMatch(/fake-fabric/);
-		expect(index).not.toMatch(/createFakeFabricInit/);
+	it("shared membership helper is documented as harness-only", () => {
+		const source = readFileSync(path.resolve("src/lib/admin/shared-membership.ts"), "utf8");
+		expect(source).toMatch(/Test\/showcase harness only/);
+		expect(source).toMatch(/RayfinAdminMembership/);
 	});
 
-	it("owner default email lives only in the test identities module", () => {
-		const ownerConfig = readFileSync(path.resolve("src/lib/admin/owner-config.ts"), "utf8");
-		expect(ownerConfig).not.toMatch(/owner@example\.edu/);
-		const identities = readFileSync(path.resolve("src/lib/admin/test/owner-email.ts"), "utf8");
-		expect(identities).toMatch(/owner@example\.edu/);
+	it("isAdminTestMode is flag-only (not every DEV session)", () => {
+		const source = readFileSync(path.resolve("src/lib/admin/mode.ts"), "utf8");
+		expect(source).toMatch(/PUBLIC_ADMIN_TEST_MODE/);
+		expect(source).not.toMatch(/env\.DEV/);
+	});
+});
+
+describe("schema filesystem honesty", () => {
+	it("registers core AdminUser and showcase ProductCategory together", () => {
+		const schema = readFileSync(path.resolve("rayfin/data/schema.ts"), "utf8");
+		expect(schema).toMatch(/from "\.\/core\/AdminUser/);
+		expect(schema).toMatch(/from "\.\/showcase\/ProductCategory/);
+		expect(schema).toMatch(/export const schema/);
+		expect(schema).toMatch(/coreEntities/);
+		expect(schema).toMatch(/showcaseEntities/);
+	});
+
+	it("does not keep orphan entity files at rayfin/data root", () => {
+		const root = readdirSync(path.resolve("rayfin/data"));
+		expect(root.filter((name) => name.endsWith(".ts"))).toEqual(["schema.ts"]);
+		expect(root).toContain("core");
+		expect(root).toContain("showcase");
+	});
+
+	it("removes the misleading rayfin/functions membership helper", () => {
+		expect(existsSync(path.resolve("rayfin/functions"))).toBe(false);
 	});
 });

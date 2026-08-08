@@ -103,14 +103,14 @@ This package is a UI library + showcase. Document the integration contract for F
 
 1. Call `initEmbeddedAuth` in app layout.
 2. Pass `{ email }` into admin context / membership.
-3. Use `RayfinAdminData` + trusted membership function for production writes.
-4. Showcase may continue using MemoryAdminData under test mode.
+3. Use `RayfinAdminData` + `RayfinAdminMembership` (`client.data.AdminUser`) for production reads/writes.
+4. Showcase may continue using MemoryAdminData / MemoryAdminMembership under `PUBLIC_ADMIN_TEST_MODE` only.
 
 ## Out of scope (for this plan)
 
 - Replacing Fabric’s own user invite UX.
 - Entra group → admin mapping (can be a later enhancement if Rice wants group-based admins).
-- Full production Rayfin data backend standup (still blocked on Rayfin availability; auth/nav/membership model can land ahead of it).
+- Server UDFs / `client.functions` (unsupported for now; membership uses the Rayfin data client loop).
 
 ## Suggested implementation order
 
@@ -118,22 +118,25 @@ This package is a UI library + showcase. Document the integration contract for F
 2. Phase C nav/route gating against harness email identities. ✅
 3. Phase A auth bootstrap in showcase + docs for Fabric apps. ✅
 4. Phase D test/doc updates. ✅
-5. Wire RayfinAdminData when backend is ready (existing deferred work).
+5. Wire `RayfinAdminData` + `RayfinAdminMembership` in production layouts. ✅
 
 ## Implementation status (landed)
 
 - `src/lib/rayfin/{client,auth}.ts` + injectable Fabric init for authentic tests
-- Email-only `AdminIdentity` / membership / trusted helper (no bind-on-login)
+- Email-only `AdminIdentity` / membership (no bind-on-login)
 - `buildPrimaryNavigation({ isAdmin })` gates Admin tab
-- Root `+layout.ts` loads Fabric auth (or test harness) and sets `isAdmin` via shared membership
-- Production `/admin` layout calls `loadAppAuth` + `resolveAdminAccess` and wires `RayfinAdminData` (not a permanent stub)
+- Root `+layout.ts` loads Fabric auth (or test harness) and sets `isAdmin` via `RayfinAdminMembership` / harness
+- Production `/admin` layout calls `loadAppAuth` + `resolveAdminAccess` and wires `RayfinAdminData` + `RayfinAdminMembership`
 - Harness `setIdentity` / Sign in call `invalidateAll()` so Admin nav stays in sync
 - E2E covers nav visibility + email allowlist membership
+- `isAdminTestMode` is flag-only (`PUBLIC_ADMIN_TEST_MODE=true`); `npm run dev` sets it for the showcase harness; `npm run dev:rayfin` does not
 
 ## Decision record
 
 - **Admin authorization key:** normalized email from Rayfin `OpaqueSession.user.email`.
-- **AdminUsers table:** app-local allowlist, not Fabric invites.
+- **AdminUsers table:** app-local allowlist, not Fabric invites. Entity lives at `rayfin/data/core/AdminUser.ts`.
 - **userId / bindOnLogin:** remove from access control and primary UX.
 - **Admin nav:** visible only after successful membership check.
-- **Showcase allowlist store:** `getSharedAppMembership()` until a Rayfin membership RPC client is wired.
+- **Showcase allowlist store:** `MemoryAdminMembership` under `PUBLIC_ADMIN_TEST_MODE` only.
+- **Production allowlist store:** `RayfinAdminMembership` via `client.data.AdminUser` (same Rayfin ORM / SQL as consumer models). No server UDFs.
+- **Rayfin loop:** frontend → `RayfinClient` → `client.data.<Entity>` → SQL tables from `@entity` models.

@@ -2,8 +2,10 @@ import type { LayoutLoad } from "./$types";
 import { browser } from "$app/environment";
 import { resolveAdminAccess, type AdminAccessResult } from "$lib/admin/access.js";
 import { isAdminTestMode } from "$lib/admin/mode.js";
-import { getSharedAppMembership } from "$lib/admin/shared-membership.js";
+import { RayfinAdminMembership } from "$lib/admin/rayfin-admin-membership.js";
+import { resolveOwnerAdminEmail } from "$lib/admin/owner-config.js";
 import { FabricAuthConfigError, loadAppAuth } from "$lib/rayfin/auth.js";
+import { getRayfinClient } from "$lib/rayfin/client.js";
 
 export const ssr = false;
 
@@ -26,7 +28,7 @@ export const load: LayoutLoad = async () => {
 
 	try {
 		const auth = await loadAppAuth();
-		const membership = getSharedAppMembership();
+		const membership = new RayfinAdminMembership(getRayfinClient(), resolveOwnerAdminEmail());
 		const access = await resolveAdminAccess(auth.identity, membership);
 		return { adminMode: "production" as const, access };
 	} catch (error) {

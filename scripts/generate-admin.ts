@@ -1,14 +1,14 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { appEntities } from "../rayfin/data/schema.js";
+import { schema } from "../rayfin/data/schema.js";
 import { extractResources, formatResourcesModule } from "../src/lib/admin/generator/extract.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outFile = path.join(root, "src/lib/admin/generated/resources.ts");
 
 export async function generateAdminResources(): Promise<string> {
-	const resources = extractResources({ entities: appEntities });
+	const resources = extractResources({ entities: schema });
 	const source = formatResourcesModule(resources);
 	await mkdir(path.dirname(outFile), { recursive: true });
 	await writeFile(outFile, source, "utf8");
@@ -17,7 +17,7 @@ export async function generateAdminResources(): Promise<string> {
 
 export async function checkAdminResources(options?: { outFile?: string }): Promise<void> {
 	const target = options?.outFile ?? outFile;
-	const resources = extractResources({ entities: appEntities });
+	const resources = extractResources({ entities: schema });
 	const expected = formatResourcesModule(resources);
 	let actual = "";
 	try {

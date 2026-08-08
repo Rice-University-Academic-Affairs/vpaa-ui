@@ -13,6 +13,8 @@ npm run dev
 
 Open the app and click the sparkles icon to try chat. No API key is required — the showcase uses `createMockChatStream`. See `src/routes/+page.svelte` for table and metric examples, and `src/routes/+layout.svelte` with `src/routes/showcase/chat.ts` for chat wiring.
 
+Admin demo data lives under `rayfin/data/showcase/` (Products, Faculty, …). The platform allowlist entity is `rayfin/data/core/AdminUser.ts`. `npm run dev` sets `PUBLIC_ADMIN_TEST_MODE=true` for the in-browser harness; use `npm run dev:rayfin` when pointing at a real Rayfin backend.
+
 ## Use in your SvelteKit app
 
 ```sh
@@ -309,7 +311,8 @@ Composable subcomponents are also exported: `AiChatPanel`, `AiChatView`, `AiChat
 
 | Command | Description |
 |---|---|
-| `npm run dev` | Start the showcase app |
+| `npm run dev` | Start the showcase app (admin harness / `PUBLIC_ADMIN_TEST_MODE`) |
+| `npm run dev:rayfin` | Start the showcase against Rayfin (no harness flag) |
 | `npm run build` | Build the showcase app and library package |
 | `npm run check` | Type-check |
 | `npm test` | Run unit and integration tests |

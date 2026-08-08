@@ -1,7 +1,7 @@
 import { authenticated, date, entity, text, uuid } from "@microsoft/rayfin-core";
 
 @entity()
-@authenticated("read")
+@authenticated("*")
 export class AdminUser {
 	@uuid()
 	id!: string;

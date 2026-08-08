@@ -6,7 +6,8 @@
 	import { adminResources } from "$lib/admin/generated/resources.js";
 	import { isAdminTestMode } from "$lib/admin/mode.js";
 	import { RayfinAdminData } from "$lib/admin/rayfin-admin-data.js";
-	import { getSharedAppMembership } from "$lib/admin/shared-membership.js";
+	import { RayfinAdminMembership } from "$lib/admin/rayfin-admin-membership.js";
+	import { resolveOwnerAdminEmail } from "$lib/admin/owner-config.js";
 	import { getTestAdminContext } from "$lib/admin/test/bootstrap.js";
 	import type { AdminData, AdminIdentity } from "$lib/admin/types.js";
 	import AdminErrorView from "$lib/admin/components/AdminError.svelte";
@@ -33,15 +34,21 @@
 	let productionCtx: AdminContext | null = null;
 
 	if (testMode) {
-		setAdminContext(getTestAdminContext());
+		const harness = getTestAdminContext();
+		setAdminContext({
+			...harness,
+			backends: { data: "memory", membership: "memory" }
+		});
 	} else {
 		try {
+			const client = getRayfinClient();
 			productionCtx = {
 				resources: adminResources,
 				data: null as unknown as AdminData,
-				membership: getSharedAppMembership(),
+				membership: new RayfinAdminMembership(client, resolveOwnerAdminEmail()),
 				identity: null,
-				mode: "rayfin"
+				mode: "rayfin",
+				backends: { data: "rayfin", membership: "rayfin" }
 			};
 			setAdminContext(productionCtx);
 		} catch (error) {
@@ -63,7 +70,9 @@
 		}
 		if (rayfinReady && productionCtx.data) return;
 		try {
-			productionCtx.data = new RayfinAdminData(getRayfinClient(), adminResources);
+			const client = getRayfinClient();
+			productionCtx.data = new RayfinAdminData(client, adminResources);
+			productionCtx.membership = new RayfinAdminMembership(client, resolveOwnerAdminEmail());
 			clientInitError = null;
 			rayfinReady = true;
 		} catch (error) {

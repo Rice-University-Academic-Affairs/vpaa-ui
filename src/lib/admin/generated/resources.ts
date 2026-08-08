@@ -71,6 +71,11 @@ export const adminResources = {
 		],
 		children: [
 		{
+			childResource: "FacultyAward",
+			foreignKey: "facultyId",
+			policy: "restrict"
+		},
+		{
 			childResource: "ResearchGrant",
 			foreignKey: "facultyId",
 			policy: "restrict"
@@ -184,6 +189,41 @@ export const adminResources = {
 		{
 			name: "priceInCents",
 			type: "integer",
+			nullable: false,
+			readOnly: false,
+			generated: false
+		}
+		],
+		children: [
+		{
+			childResource: "ProductCategory",
+			foreignKey: "productId",
+			policy: "restrict"
+		}
+		]
+	},
+	"ProductCategory": {
+		name: "ProductCategory",
+		slug: "product-categories",
+		fields: [
+		{
+			name: "id",
+			type: "string",
+			nullable: false,
+			readOnly: true,
+			generated: true,
+			primaryKey: true
+		},
+		{
+			name: "name",
+			type: "string",
+			nullable: false,
+			readOnly: false,
+			generated: false
+		},
+		{
+			name: "productId",
+			type: "string",
 			nullable: false,
 			readOnly: false,
 			generated: false

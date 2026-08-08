@@ -7,6 +7,10 @@ export type AdminContext = {
 	membership: AdminMembershipService;
 	identity: AdminIdentity | null;
 	mode: "memory" | "rayfin";
+	backends?: {
+		data: "memory" | "rayfin";
+		membership: "memory" | "rayfin";
+	};
 };
 
 export const [getAdminContext, setAdminContext] = createContext<AdminContext>();

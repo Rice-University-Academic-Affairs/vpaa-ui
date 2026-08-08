@@ -95,7 +95,9 @@ export { parseFormValues, emptyFormValues, recordToFormValues } from "./admin/fo
 export { mapAdminError } from "./admin/errors.js";
 export { resolveAdminAccess } from "./admin/access.js";
 export { RayfinAdminData } from "./admin/rayfin-admin-data.js";
+export { RayfinAdminMembership } from "./admin/rayfin-admin-membership.js";
 export { resolveOwnerAdminEmail, requireOwnerAdminEmail, normalizeEmail } from "./admin/owner-config.js";
+export { isAdminTestMode } from "./admin/mode.js";
 export { getAdminContext, setAdminContext, type AdminContext } from "./admin/context.js";
 export { adminResources, getResourceBySlug, listResourceEntries, resourcePluralLabel } from "./admin/generated/resources.js";
 export { extractResources, formatResourcesModule } from "./admin/generator/extract.js";

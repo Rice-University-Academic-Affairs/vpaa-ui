@@ -18,8 +18,8 @@ Two independent top-to-bottom passes. Each pass covers code, unit tests, E2E tes
 | Conventions / form-values | Pluralization edge cases, optional null vs empty, integer/enum/JSON rejection, datetime shapes, wiping form state | Call pure functions with real inputs; assert thrown `AdminError.fields` |
 | MemoryAdminData | Cursor off-by-one, sort instability, reset leaking forbidden, UUID generation, wrong resource | Contract suite creates/lists/sorts/paginates real in-memory store — no mocked `list` |
 | RayfinAdminData | Broken builder chain, missing entity client, cursor/`after` misuse | Keep thin; contract shared for when backend exists; do not fake GraphQL responses that never hit dispatch |
-| Membership / access / owner-config | Email normalize, owner immutability, 401/403/409, bind-on-login races, duplicate add | Use real `MemoryAdminMembership` methods; assert status/kind on thrown `AdminError` |
-| Trusted membership helper | Drift from MemoryAdminMembership semantics | Unit-test helper independently against a tiny real store |
+| Membership / access / owner-config | Email normalize, owner immutability, 401/403/409, duplicate add | Use real `MemoryAdminMembership` + `RayfinAdminMembership` (fake `client.data.AdminUser`); assert status/kind on thrown `AdminError` |
+| RayfinAdminMembership | Drift from memory rules; wrong data-client calls | Unit-test against fake AdminUser client; production layouts must not import memory singleton |
 | Routes / components | Access gate bypass, AdminUser special-case holes, delete without confirm, validation UX, pagination Previous stack | Playwright against live Vite app + harness; no route-level mocks |
 | Test harness (`bootstrap.ts`, `__ADMIN_TEST__`) | Production leak, sessionStorage drift, singleton reset, forbidden not applied after reload | Isolation tests + E2E that reload and still see identity/forbidden/membership |
 | Public exports / packaging | Exporting MemoryAdminData / test identities | Isolation test on `src/lib/index.ts` |
@@ -54,19 +54,17 @@ Accept tests that:
 
 1. Re-read fixed code without relying on Pass-1 notes.
 2. Re-check each Pass-1 fix did not introduce new footguns.
-3. Hunt remaining gaps (AdminUser E2E depth, RayfinAdminData unit smoke, trusted helper tests, generator relationship FK retention).
+3. Hunt remaining gaps (AdminUser E2E depth, RayfinAdminData unit smoke, RayfinAdminMembership fake-client tests, generator relationship FK retention).
 4. Fix + re-run full suites.
 
 #### Pass 2 outcomes (applied)
 
-- Trusted membership gained `bindOnLogin`, `AdminError` parity, and field-mapped invalid email.
 - Memory AdminUser data-API forbid aligned with Rayfin for list/get/update/remove; seed ids normalized; list limits clamped; required-field validation added.
 - Generator G8/G9 tests now fail for real unsupported fields / stale `checkAdminResources({ outFile })`.
-- ProductCategory keeps scalar `productId` FK while omitting `@one` navigation.
+- ProductCategory keeps scalar `productId` FK while omitting `@one` navigation; registered under `rayfin/data/showcase/`.
 - RayfinAdminData contract runs against a behavior-complete in-memory client; GraphQL error mapping no longer treats every GraphQL message as validation.
 - E2E bind uses the access-gate path; sort asserts descending name order; FacultyAward covers enum/boolean/textarea; forbidden persists across reload.
-
-Deferred until Rayfin auth is available: production layout wiring of `RayfinAdminData` (test/DEV harness remains intentional scaffolding).
+- Production layouts wire `RayfinAdminData` + `RayfinAdminMembership`; harness only when `PUBLIC_ADMIN_TEST_MODE=true`.
 
 ## Demo (after both passes)
 
