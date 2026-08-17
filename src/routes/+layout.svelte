@@ -4,11 +4,6 @@
 	import { AppShell } from "$lib/index.js";
 	import type { AiChatSession } from "$lib/ai-chat/session/create-session.svelte.js";
 	import { createShowcaseChatSessionIfAvailable } from "./showcase/chat.js";
-<<<<<<< HEAD
-	import type { AppNavGroup } from "$lib/types/navigation.js";
-=======
-	import type { FacultyRow } from "$lib/types/drilldown.js";
->>>>>>> origin/cursor/svelte-admin-rayfin-5de0
 	import { faculty } from "./showcase.js";
 	import { buildPrimaryNavigation } from "$lib/auth/navigation.js";
 	import { isAdminTestMode } from "$lib/admin/mode.js";
