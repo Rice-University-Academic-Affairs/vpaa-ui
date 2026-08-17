@@ -64,3 +64,52 @@ export type {
 	FacultyRow,
 	SchoolRow
 } from "./types/drilldown.js";
+
+export type {
+	AdminChildRelation,
+	AdminData,
+	AdminDeleteImpact,
+	AdminDeletePolicy,
+	AdminField,
+	AdminIdentity,
+	AdminMembershipService,
+	AdminRecord,
+	AdminResource,
+	AdminResources,
+	DeleteChildBucket,
+	ListRequest,
+	ListResult
+} from "./admin/types.js";
+export { AdminError } from "./admin/types.js";
+export {
+	ADMIN_PAGE_SIZE,
+	defaultSort,
+	fieldControl,
+	humanizeName,
+	listColumns,
+	pluralizeLabel,
+	resourceSlug,
+	writableFields
+} from "./admin/conventions.js";
+export { parseFormValues, emptyFormValues, recordToFormValues } from "./admin/form-values.js";
+export { mapAdminError } from "./admin/errors.js";
+export { resolveAdminAccess } from "./admin/access.js";
+export { RayfinAdminData } from "./admin/rayfin-admin-data.js";
+export { RayfinAdminMembership } from "./admin/rayfin-admin-membership.js";
+export { resolveOwnerAdminEmail, requireOwnerAdminEmail, normalizeEmail } from "./admin/owner-config.js";
+export { isAdminTestMode } from "./admin/mode.js";
+export { getAdminContext, setAdminContext, type AdminContext } from "./admin/context.js";
+export { adminResources, getResourceBySlug, listResourceEntries, resourcePluralLabel } from "./admin/generated/resources.js";
+export { extractResources, formatResourcesModule } from "./admin/generator/extract.js";
+export {
+	bootstrapAuth,
+	identityFromSession,
+	loadAppAuth,
+	readFabricAuthOptions,
+	sessionToAppAuth,
+	type AppAuthSession,
+	type BootstrapAuthOptions,
+	type IAuthService
+} from "./rayfin/auth.js";
+export { getRayfinClient } from "./rayfin/client.js";
+export { buildPrimaryNavigation } from "./auth/navigation.js";

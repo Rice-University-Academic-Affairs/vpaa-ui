@@ -1,20 +1,29 @@
 <script lang="ts">
 	import { page } from "$app/state";
+	import { browser } from "$app/environment";
 	import { AppShell } from "$lib/index.js";
 	import type { AiChatSession } from "$lib/ai-chat/session/create-session.svelte.js";
 	import { createShowcaseChatSessionIfAvailable } from "./showcase/chat.js";
+<<<<<<< HEAD
 	import type { AppNavGroup } from "$lib/types/navigation.js";
+=======
+	import type { FacultyRow } from "$lib/types/drilldown.js";
+>>>>>>> origin/cursor/svelte-admin-rayfin-5de0
 	import { faculty } from "./showcase.js";
-	import LayoutDashboard from "@lucide/svelte/icons/layout-dashboard";
+	import { buildPrimaryNavigation } from "$lib/auth/navigation.js";
+	import { isAdminTestMode } from "$lib/admin/mode.js";
+	import { getTestAdminContext } from "$lib/admin/test/bootstrap.js";
+	import { installAdminTestWindow } from "$lib/admin/test/install-harness.js";
 	import "./layout.css";
 
-	let { children }: { children: import("svelte").Snippet } = $props();
+	let { data, children }: { data: { isAdmin?: boolean; email?: string | null }; children: import("svelte").Snippet } =
+		$props();
 
-	const navigation: AppNavGroup[] = [
-		{
-			items: [{ label: "Showcase", href: "/", icon: LayoutDashboard, exact: true }]
-		}
-	];
+	if (isAdminTestMode() && browser) {
+		installAdminTestWindow(getTestAdminContext());
+	}
+
+	const navigation = $derived(buildPrimaryNavigation({ isAdmin: Boolean(data.isAdmin) }));
 
 	let chatSession = $state<AiChatSession | undefined>(undefined);
 	let searchSelection = $state("");
@@ -37,7 +46,7 @@
 	appName="VPAA UI"
 	{navigation}
 	currentPath={page.url.pathname}
-	user={{ name: "Cody E." }}
+	user={{ name: data.email ?? "Signed out" }}
 	search={{
 		items: faculty,
 		field: "name",
